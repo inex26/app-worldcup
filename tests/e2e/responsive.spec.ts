@@ -41,6 +41,22 @@ async function expectControlsInViewport(page: Page, where: string) {
   expect(offenders, `${where}: controls spilling outside the phone viewport: ${offenders.join(", ")}`).toEqual([]);
 }
 
+/** Assert the league/modal card sits inside the viewport with symmetric (centered) gutters. */
+async function expectCardCentered(page: Page, where: string) {
+  const vw = page.viewportSize()!.width;
+  const box = await page.locator(".card").boundingBox();
+  expect(box, `${where}: the .card is not rendered`).not.toBeNull();
+  const { x, width } = box!;
+  const leftGutter = x;
+  const rightGutter = vw - (x + width);
+  expect(leftGutter, `${where}: card overflows the left edge`).toBeGreaterThanOrEqual(0);
+  expect(rightGutter, `${where}: card overflows the right edge`).toBeGreaterThanOrEqual(0);
+  expect(
+    Math.abs(leftGutter - rightGutter),
+    `${where}: card is not centered (left ${leftGutter}px vs right ${rightGutter}px)`,
+  ).toBeLessThanOrEqual(1);
+}
+
 // Routes that render without a backend session (forms / landing). Drive backend-gated states in
 // their own test (see the share modal below).
 const ROUTES = ["/", "/create", "/join"];
@@ -100,10 +116,11 @@ test("fits the phone: create → share invite modal", async ({ page }) => {
     if (url.includes("/user")) return route.fulfill(json(FAKE_USER));
     return route.fulfill(json({}));
   });
+  // Any other table read (membership lookup, members list) → empty. Registered FIRST so the more
+  // specific create_league handler below wins (Playwright matches the most-recently-added route).
+  await page.route("**/rest/v1/**", (route) => route.fulfill(json([])));
   // create_league RPC returns the new league row (with the long invite token).
   await page.route("**/rest/v1/rpc/create_league*", (route) => route.fulfill(json(FAKE_LEAGUE)));
-  // Any other table read (membership lookup, members list) → empty.
-  await page.route("**/rest/v1/**", (route) => route.fulfill(json([])));
 
   await page.goto("/create", { waitUntil: "networkidle" });
   await page.getByLabel("League name").fill("Vasco");
@@ -115,4 +132,5 @@ test("fits the phone: create → share invite modal", async ({ page }) => {
 
   await expectNoHorizontalOverflow(page, "create → share modal");
   await expectControlsInViewport(page, "create → share modal");
+  await expectCardCentered(page, "create → share modal");
 });

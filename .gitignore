@@ -12,4 +12,10 @@ build
 # local env (real values live in Vercel, never committed)
 .env*.local
 
+# playwright e2e artifacts + browser cache
+/test-results
+/playwright-report
+/blob-report
+/playwright/.cache
+
 .DS_Store
