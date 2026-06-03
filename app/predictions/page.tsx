@@ -10,7 +10,7 @@ import { Toast, useToast } from "@/components/Toast";
 import { useSession } from "@/components/useSession";
 import { MATCHES, ROUNDS, isLocked } from "@/lib/matches";
 import { scorePrediction } from "@/lib/scoring";
-import { getPredictions, upsertPrediction } from "@/lib/storage";
+import { fetchPredictions, savePrediction } from "@/lib/data";
 import type { Prediction } from "@/lib/types";
 
 /** Parse an input string into a valid goal count (0–20 integer) or null. */
@@ -42,16 +42,27 @@ export default function PredictionsPage() {
   // Hydrate inputs from saved predictions once the session is ready.
   useEffect(() => {
     if (!user || !league) return;
-    const preds = getPredictions(league.code, user.id);
-    const savedMap: Record<string, Prediction> = {};
-    const valueMap: Record<string, RowValue> = {};
-    for (const p of preds) {
-      savedMap[p.matchId] = p;
-      valueMap[p.matchId] = { home: String(p.home), away: String(p.away) };
-    }
-    setSaved(savedMap);
-    setValues(valueMap);
-  }, [user, league]);
+    let active = true;
+    fetchPredictions(league.id, user.id)
+      .then((preds) => {
+        if (!active) return;
+        const savedMap: Record<string, Prediction> = {};
+        const valueMap: Record<string, RowValue> = {};
+        for (const p of preds) {
+          savedMap[p.matchId] = p;
+          valueMap[p.matchId] = { home: String(p.home), away: String(p.away) };
+        }
+        setSaved(savedMap);
+        setValues(valueMap);
+      })
+      .catch((err) => {
+        console.error("Load predictions failed:", err);
+        if (active) show("Couldn't load your predictions.");
+      });
+    return () => {
+      active = false;
+    };
+  }, [user, league, show]);
 
   const matchesByRound = useMemo(
     () => ROUNDS.map((round) => ({ round, list: MATCHES.filter((m) => m.round === round) })),
@@ -88,8 +99,21 @@ export default function PredictionsPage() {
     const away = parseGoals(v.away);
     if (home === null || away === null) return false;
     const prediction: Prediction = { matchId, home, away, savedAt: Date.now() };
-    upsertPrediction(league.code, user.id, prediction);
+
+    // Optimistic: reflect the save immediately, then persist in the background
+    // and revert this row if the upsert fails.
+    const previous = saved[matchId];
     setSaved((prev) => ({ ...prev, [matchId]: prediction }));
+    savePrediction(league.id, user.id, prediction).catch((err) => {
+      console.error("Save prediction failed:", err);
+      setSaved((prev) => {
+        const next = { ...prev };
+        if (previous) next[matchId] = previous;
+        else delete next[matchId];
+        return next;
+      });
+      show("Couldn't save. Please try again.");
+    });
     return true;
   }
 
