@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { AppShell } from "@/components/AppShell";
@@ -12,8 +12,8 @@ import { MatchRow } from "@/components/MatchRow";
 import { useSession } from "@/components/useSession";
 import { MATCHES, ROUNDS, isLocked } from "@/lib/matches";
 import { computeStandings, scorePrediction } from "@/lib/scoring";
-import { getAllPredictions, getPredictions } from "@/lib/storage";
-import type { Prediction } from "@/lib/types";
+import { fetchLeaderboard } from "@/lib/data";
+import type { Prediction, Standing } from "@/lib/types";
 
 type TabId = "standings" | "mypicks";
 
@@ -25,28 +25,35 @@ export default function LeaderboardPage() {
   const [tab, setTab] = useState<TabId>("standings");
   const [skeleton, setSkeleton] = useState(true);
   const [myPicks, setMyPicks] = useState<Record<string, Prediction>>({});
+  const [standings, setStandings] = useState<Standing[]>([]);
 
   useEffect(() => {
     if (!loading && (!user || !league)) router.replace("/");
   }, [loading, user, league, router]);
 
-  // Brief mock loading shimmer for the standings.
-  useEffect(() => {
-    const t = setTimeout(() => setSkeleton(false), 300);
-    return () => clearTimeout(t);
-  }, []);
-
+  // Load every member's predictions for this league, then compute standings and
+  // the caller's own picks from the same payload.
   useEffect(() => {
     if (!user || !league) return;
-    const map: Record<string, Prediction> = {};
-    for (const p of getPredictions(league.code, user.id)) map[p.matchId] = p;
-    setMyPicks(map);
-  }, [user, league]);
-
-  const standings = useMemo(() => {
-    if (!league) return [];
-    return computeStandings(league.members, getAllPredictions(league), MATCHES, now);
-  }, [league, now]);
+    let active = true;
+    setSkeleton(true);
+    fetchLeaderboard(league.id)
+      .then(({ members, predictionsByMember }) => {
+        if (!active) return;
+        setStandings(computeStandings(members, predictionsByMember, MATCHES, now));
+        const mine: Record<string, Prediction> = {};
+        for (const p of predictionsByMember[user.id] ?? []) mine[p.matchId] = p;
+        setMyPicks(mine);
+        setSkeleton(false);
+      })
+      .catch((err) => {
+        console.error("Load leaderboard failed:", err);
+        if (active) setSkeleton(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [user, league, now]);
 
   if (loading || !user || !league) {
     return (
@@ -132,7 +139,9 @@ export default function LeaderboardPage() {
                       saved={pick !== undefined}
                       dirty={false}
                       value={
-                        pick ? { home: String(pick.home), away: String(pick.away) } : { home: "", away: "" }
+                        pick
+                          ? { home: String(pick.home), away: String(pick.away) }
+                          : { home: "", away: "" }
                       }
                       result={locked ? match.result : undefined}
                       points={points}

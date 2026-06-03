@@ -1,15 +1,5 @@
 import { describe, it, expect } from "vitest";
-import {
-  CODE_LENGTH,
-  generateCode,
-  isValidCode,
-  generateLeagueName,
-  seedMockMembers,
-  seedMockPredictions,
-  withMember,
-} from "./league";
-import { MATCHES } from "./matches";
-import type { League } from "./types";
+import { CODE_LENGTH, generateCode, isValidCode, generateLeagueName } from "./league";
 
 /** Deterministic PRNG-ish source for tests. */
 function seq(values: number[]): () => number {
@@ -45,33 +35,5 @@ describe("generateLeagueName", () => {
   it("combines an adjective and noun", () => {
     const name = generateLeagueName(seq([0, 0]));
     expect(name.split(" ")).toHaveLength(2);
-  });
-});
-
-describe("mock seeding", () => {
-  it("seeds 5 rival members", () => {
-    expect(seedMockMembers()).toHaveLength(5);
-  });
-
-  it("seeds a valid prediction for every match", () => {
-    const [member] = seedMockMembers();
-    const preds = seedMockPredictions(member, MATCHES, 1);
-    expect(preds).toHaveLength(MATCHES.length);
-    expect(preds.every((p) => p.home >= 0 && p.away >= 0)).toBe(true);
-  });
-});
-
-describe("withMember", () => {
-  const league: League = { name: "Test", code: "ABCDEF", members: [] };
-
-  it("adds a new member", () => {
-    const next = withMember(league, { id: "u1", displayName: "Pat" });
-    expect(next.members).toHaveLength(1);
-  });
-
-  it("is idempotent for an existing member id", () => {
-    const one = withMember(league, { id: "u1", displayName: "Pat" });
-    const two = withMember(one, { id: "u1", displayName: "Pat" });
-    expect(two.members).toHaveLength(1);
   });
 });

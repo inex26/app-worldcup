@@ -1,4 +1,4 @@
-/** Shared domain types for the World Cup predictions app (UI-only, localStorage-backed). */
+/** Shared domain types for the World Cup predictions app (Supabase-backed). */
 
 /** A football team with a display name and flag emoji. */
 export interface Team {
@@ -40,8 +40,10 @@ export interface Member {
   displayName: string;
 }
 
-/** A league: name, share code, and its members. */
+/** A league: id (uuid), name, share code, and its members. */
 export interface League {
+  /** Supabase row id (uuid) — used to scope prediction/membership queries. */
+  id: string;
   name: string;
   code: string;
   members: Member[];

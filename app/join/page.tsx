@@ -5,10 +5,10 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Input } from "@/components/Input";
 import { Button } from "@/components/Button";
-import { createMemberId, isValidCode } from "@/lib/league";
-import { getLeague, joinLeague } from "@/lib/storage";
+import { isValidCode } from "@/lib/league";
+import { joinLeagueByCode } from "@/lib/data";
 
-/** Screen 3 — Join League. empty → loading (150ms mock) → error | success(redirect). */
+/** Screen 3 — Join League. empty → loading → error | success(redirect). */
 export default function JoinPage() {
   const router = useRouter();
   const [code, setCode] = useState("");
@@ -18,23 +18,24 @@ export default function JoinPage() {
 
   const valid = isValidCode(code) && name.trim().length > 0;
 
-  function handleJoin() {
+  async function handleJoin() {
     if (!valid || loading) return;
     setError(null);
     setLoading(true);
 
-    // Mock network latency (150ms) per the design spec.
-    setTimeout(() => {
-      const league = getLeague(code);
+    try {
+      const league = await joinLeagueByCode(code, name.trim());
       if (!league) {
         setLoading(false);
         setError("League not found. Check your code.");
         return;
       }
-      const member = { id: createMemberId(), displayName: name.trim() };
-      joinLeague(league, member);
       router.push("/predictions");
-    }, 150);
+    } catch (err) {
+      console.error("Join league failed:", err);
+      setLoading(false);
+      setError("Something went wrong. Please try again.");
+    }
   }
 
   return (
