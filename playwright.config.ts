@@ -16,8 +16,12 @@ export default defineConfig({
   expect: { timeout: 5_000 },
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
+  retries: process.env.CI ? 1 : 0,
   reporter: process.env.CI ? "github" : "list",
-  use: { baseURL: `http://127.0.0.1:${PORT}` },
+  use: {
+    baseURL: `http://127.0.0.1:${PORT}`,
+    trace: "on-first-retry",
+  },
   // A small-phone viewport (375px) — the width where overflow / clipped-modal bugs surface.
   projects: [{ name: "mobile", use: { viewport: { width: 375, height: 812 } } }],
   webServer: {

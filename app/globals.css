@@ -95,6 +95,13 @@ a {
    clipped (e.g. landscape phones, or when the keyboard shrinks the view). */
 .center-page--modal {
   place-items: safe center;
+  /* Pin the centering column to the viewport. Without an explicit track, grid
+     sizes the implicit column to the card's max-content — and the share view's
+     non-wrapping invite URL makes that wider than the screen, so the card's
+     `width: min(480px, 100%)` resolves `100%` against an oversized track and
+     overflows horizontally on mobile. `minmax(0, 1fr)` caps the track at the
+     available width so the card shrinks to fit and stays centered. */
+  grid-template-columns: minmax(0, 1fr);
 }
 @media (max-height: 600px) {
   .center-page--modal {
