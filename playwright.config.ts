@@ -1,34 +1,40 @@
-import { defineConfig, devices } from "@playwright/test";
+import { defineConfig } from "@playwright/test";
 
 /**
- * Responsive e2e gate. Boots the app and drives real screens at mobile
- * viewports to catch layout regressions (overflow, off-screen/clipped UI) that
- * unit tests can't see. Supabase is network-mocked inside the specs, so the
- * placeholder env below just needs to be well-formed.
+ * Responsive smoke tests — the mobile bar, enforced.
+ *
+ * Boots the app and exercises key routes at a real phone width, asserting no horizontal overflow and
+ * that interactive elements stay on-screen. Runs in CI on every PR AND locally via `npm run test:e2e`,
+ * so it's part of "done means green". This is the gate that catches "cut off / not centered on mobile"
+ * bugs that a code-only review (or a coding agent that never renders the page) will always miss.
  */
-const PORT = 3100;
-const baseURL = `http://localhost:${PORT}`;
+const PORT = Number(process.env.E2E_PORT ?? 3100);
 
 export default defineConfig({
   testDir: "./tests/e2e",
+  timeout: 30_000,
+  expect: { timeout: 5_000 },
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 1 : 0,
   reporter: process.env.CI ? "github" : "list",
   use: {
-    baseURL,
+    baseURL: `http://127.0.0.1:${PORT}`,
     trace: "on-first-retry",
   },
-  projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
+  // A small-phone viewport (375px) — the width where overflow / clipped-modal bugs surface.
+  projects: [{ name: "mobile", use: { viewport: { width: 375, height: 812 } } }],
   webServer: {
-    command: `npm run dev -- -p ${PORT}`,
-    url: baseURL,
-    timeout: 120_000,
+    command: `npm run dev -- --port ${PORT}`,
+    url: `http://127.0.0.1:${PORT}`,
     reuseExistingServer: !process.env.CI,
+    timeout: 120_000,
+    // Supabase config so the browser client constructs (the share test mocks its network at the
+    // browser level). The URL points at a dead local port so the SERVER-side middleware getUser()
+    // — which Playwright can't intercept — fails instantly instead of hanging on DNS.
     env: {
-      NEXT_PUBLIC_SUPABASE_URL: "https://placeholder.supabase.co",
-      NEXT_PUBLIC_SUPABASE_ANON_KEY: "placeholder-anon-key",
-      NEXT_PUBLIC_SITE_URL: baseURL,
+      NEXT_PUBLIC_SUPABASE_URL: "http://127.0.0.1:9999",
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: "e2e-anon-key",
     },
   },
 });
