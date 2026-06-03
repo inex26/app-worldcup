@@ -1,7 +1,8 @@
 import { defineConfig, configDefaults } from "vitest/config";
 
-// Keep the Playwright e2e specs out of the unit-test run — vitest's default
-// include matches `*.spec.ts`, which would otherwise try to execute them.
+// Unit tests are `*.test.ts` (run by vitest). The `tests/e2e` Playwright specs use Playwright's own
+// `test()` runner — exclude them here so `npm run test` doesn't try to collect them (it would fail
+// with "Playwright Test did not expect test() to be called here"). They run via `npm run test:e2e`.
 export default defineConfig({
   test: {
     exclude: [...configDefaults.exclude, "tests/e2e/**"],
