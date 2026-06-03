@@ -100,10 +100,11 @@ test("fits the phone: create → share invite modal", async ({ page }) => {
     if (url.includes("/user")) return route.fulfill(json(FAKE_USER));
     return route.fulfill(json({}));
   });
+  // Any other table read (membership lookup, members list) → empty. Registered first so the
+  // specific create_league route below takes precedence (Playwright runs routes last-added-first).
+  await page.route("**/rest/v1/**", (route) => route.fulfill(json([])));
   // create_league RPC returns the new league row (with the long invite token).
   await page.route("**/rest/v1/rpc/create_league*", (route) => route.fulfill(json(FAKE_LEAGUE)));
-  // Any other table read (membership lookup, members list) → empty.
-  await page.route("**/rest/v1/**", (route) => route.fulfill(json([])));
 
   await page.goto("/create", { waitUntil: "networkidle" });
   await page.getByLabel("League name").fill("Vasco");

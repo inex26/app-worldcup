@@ -82,6 +82,10 @@ a {
 .center-page {
   min-height: 100dvh;
   display: grid;
+  /* minmax(0, 1fr) keeps the single column sized to the available width. Without it the implicit
+     `auto` track sizes to max-content, so a wide child (e.g. a long, non-wrapping invite URL) lets
+     the card's `min(480px, 100%)` resolve `100%` to that overflow width and spill off the phone. */
+  grid-template-columns: minmax(0, 1fr);
   place-items: center;
   padding: var(--sp-5) var(--sp-4);
 }
