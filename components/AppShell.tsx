@@ -3,7 +3,7 @@
 import Link from "next/link";
 import type { League } from "@/lib/types";
 import { Toast, copyText, useToast } from "./Toast";
-import { CopyIcon, PlusIcon } from "./icons";
+import { CopyIcon, DevicesIcon, PlusIcon } from "./icons";
 
 type Tab = "predictions" | "leaderboard";
 
@@ -35,6 +35,15 @@ export function AppShell({ league, active, children }: AppShellProps) {
           </small>
         </span>
         <div className="appbar-actions">
+          <Link
+            className="btn btn-outlined btn-sm"
+            href="/account"
+            aria-label="Save account to use on other devices"
+            title="Use on other devices"
+          >
+            <DevicesIcon width={16} height={16} />
+            <span className="appbar-create-label">Sync</span>
+          </Link>
           <Link className="btn btn-outlined btn-sm" href="/create" aria-label="Create League">
             <PlusIcon width={16} height={16} />
             <span className="appbar-create-label">Create League</span>

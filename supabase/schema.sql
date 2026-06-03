@@ -8,7 +8,11 @@
 --
 -- Auth model: every visitor signs in anonymously (Supabase Auth → "Allow
 -- anonymous sign-ins" must be enabled in the dashboard). The user's identity is
--- auth.uid(); there are no passwords in v1.
+-- auth.uid(); there are no passwords. A user may optionally attach an email to
+-- that same auth.uid() (Supabase's built-in auth.users) to sign in on another
+-- device — see "Cross-device sign-in" in README.md. No schema change is needed:
+-- the email lives in auth.users and the user id is unchanged, so all the tables
+-- and RLS policies below keep working as-is.
 -- ============================================================================
 
 -- gen_random_uuid() / gen_random_bytes() live here.

@@ -99,7 +99,7 @@ export default function HomePage() {
           <TrophyIcon width={22} height={22} style={{ color: "var(--gold)" }} />
           <span>{APP_NAME}</span>
         </Link>
-        <Link className="btn btn-ghost btn-sm" href="/join">
+        <Link className="btn btn-ghost btn-sm" href="/account">
           Sign in
         </Link>
       </header>

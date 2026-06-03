@@ -97,6 +97,10 @@ export const FAQS: Faq[] = [
     q: "Can I play on my phone?",
     a: "Yes. World Cup Predictions runs in any mobile or desktop browser, with no app to download. The interface is built mobile-first for predicting on the go.",
   },
+  {
+    q: "Can I use the same league on more than one device?",
+    a: "Yes. Optionally save your account by adding an email — tap Sync inside your league — then choose Sign in on any other phone or computer and enter that email. You'll get a one-time code by email, and your league and predictions follow you. Email is optional and only used to recover your account on a new device.",
+  },
 ];
 
 /** Internal links for the footer (rich internal linking for crawlers). */

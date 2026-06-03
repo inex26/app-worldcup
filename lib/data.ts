@@ -16,8 +16,18 @@ import type { CurrentUser, League, Member, Prediction } from "./types";
 const UNIQUE_VIOLATION = "23505";
 const NO_DATA_FOUND = "P0002"; // raised by join_league*() for an unknown code/token
 
-/** Ensure there is a session, creating an anonymous one on first visit. */
-export async function ensureUserId(): Promise<string> {
+/** The signed-in user's id plus their email (null while the session is anonymous). */
+export interface AccountIdentity {
+  id: string;
+  email: string | null;
+}
+
+/**
+ * Ensure there is a session, creating an anonymous one on first visit, and
+ * return the user's id + email. Email is null until the user attaches one via
+ * `startEmailLink` (the cross-device flow); see lib/auth.ts.
+ */
+export async function ensureUser(): Promise<AccountIdentity> {
   const supabase = getBrowserClient();
   const { data: sessionData } = await supabase.auth.getSession();
   if (!sessionData.session) {
@@ -26,7 +36,12 @@ export async function ensureUserId(): Promise<string> {
   }
   const { data, error } = await supabase.auth.getUser();
   if (error || !data.user) throw error ?? new Error("No authenticated user");
-  return data.user.id;
+  return { id: data.user.id, email: data.user.email ?? null };
+}
+
+/** Ensure there is a session and return just the user id. */
+export async function ensureUserId(): Promise<string> {
+  return (await ensureUser()).id;
 }
 
 /** A `leagues` row as returned by our queries / RPCs. */
@@ -75,7 +90,7 @@ export async function loadSession(): Promise<{
   league: League | null;
 }> {
   const supabase = getBrowserClient();
-  const userId = await ensureUserId();
+  const { id: userId, email } = await ensureUser();
 
   const { data: membership, error } = await supabase
     .from("league_members")
@@ -92,9 +107,72 @@ export async function loadSession(): Promise<{
   if (!league) return { user: null, league: null };
 
   return {
-    user: { id: userId, displayName: membership.display_name, leagueCode: league.code },
+    user: { id: userId, displayName: membership.display_name, leagueCode: league.code, email },
     league,
   };
+}
+
+// ── Cross-device sign-in (attach an email, then recover it elsewhere) ─────────
+// Anonymous sessions live only in the current browser. To reach the same league
+// from another device, a user attaches an email to their account and later signs
+// in with a one-time code emailed to that address — which restores the *same*
+// auth.uid(), so their membership and predictions come along via RLS. We use
+// emailed OTP codes (not magic links) so the whole flow stays client-side with
+// no callback route. Requires Supabase Auth → Email provider enabled, with the
+// "Confirm signup"/"Magic Link"/"Change email" templates including `{{ .Token }}`.
+
+/**
+ * Step 1 of saving an account: attach `email` to the current (anonymous) user.
+ * Supabase emails a confirmation code; finish with `confirmEmailLink`.
+ */
+export async function startEmailLink(email: string): Promise<void> {
+  const supabase = getBrowserClient();
+  await ensureUserId();
+  const { error } = await supabase.auth.updateUser({ email: email.trim() });
+  if (error) throw error;
+}
+
+/**
+ * Step 2 of saving an account: confirm the emailed code, finalizing the email on
+ * the current account. The user id does not change, so nothing else moves.
+ */
+export async function confirmEmailLink(email: string, code: string): Promise<void> {
+  const supabase = getBrowserClient();
+  const { error } = await supabase.auth.verifyOtp({
+    email: email.trim(),
+    token: code.trim(),
+    type: "email_change",
+  });
+  if (error) throw error;
+}
+
+/**
+ * Step 1 of signing in on a new device: email a one-time code to `email`.
+ * `shouldCreateUser: false` means an unknown email errors instead of silently
+ * creating a fresh (empty) account — so the user knows to save it elsewhere first.
+ */
+export async function startEmailSignIn(email: string): Promise<void> {
+  const supabase = getBrowserClient();
+  const { error } = await supabase.auth.signInWithOtp({
+    email: email.trim(),
+    options: { shouldCreateUser: false },
+  });
+  if (error) throw error;
+}
+
+/**
+ * Step 2 of signing in on a new device: verify the emailed code. On success the
+ * browser session becomes the existing account, so the caller can route into the
+ * app and `loadSession` will resolve that account's league.
+ */
+export async function confirmEmailSignIn(email: string, code: string): Promise<void> {
+  const supabase = getBrowserClient();
+  const { error } = await supabase.auth.verifyOtp({
+    email: email.trim(),
+    token: code.trim(),
+    type: "email",
+  });
+  if (error) throw error;
 }
 
 /**
