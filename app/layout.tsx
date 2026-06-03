@@ -1,8 +1,13 @@
 import type { Metadata, Viewport } from "next";
+import { SITE_URL, APP_NAME } from "@/lib/landing";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "World Cup Predictions",
+  metadataBase: new URL(SITE_URL),
+  title: {
+    default: APP_NAME,
+    template: `%s · ${APP_NAME}`,
+  },
   description: "Predict group-stage scores and compete with friends — no login required.",
 };
 
