@@ -15,10 +15,7 @@ export default function HomePage() {
           <TrophyIcon style={{ color: "var(--gold)" }} />
         </div>
         <h1>World Cup Predictions</h1>
-        <p className="muted">
-          Predict group-stage scores, climb the leaderboard, and settle it with your friends. No
-          login, no fuss.
-        </p>
+        <p className="muted">Predict the World Cup with friends.</p>
 
         {!loading && league && (
           <div className="banner">
