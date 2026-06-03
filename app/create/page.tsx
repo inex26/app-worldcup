@@ -93,7 +93,7 @@ export default function CreatePage() {
               Your league is ready. Share this link — anyone who opens it joins automatically.
             </p>
             <InviteLink leagueName={league.name} url={url} onToast={show} />
-            <Link className="btn btn-ghost btn-block" href="/leaderboard">
+            <Link className="btn btn-ghost btn-block" href="/predictions">
               Done
             </Link>
           </>
