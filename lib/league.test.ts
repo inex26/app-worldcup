@@ -1,5 +1,13 @@
 import { describe, it, expect } from "vitest";
-import { CODE_LENGTH, generateCode, isValidCode, generateLeagueName } from "./league";
+import {
+  CODE_LENGTH,
+  LEAGUE_NAME_MAX,
+  generateCode,
+  isValidCode,
+  generateLeagueName,
+  isValidLeagueName,
+  inviteUrl,
+} from "./league";
 
 /** Deterministic PRNG-ish source for tests. */
 function seq(values: number[]): () => number {
@@ -35,5 +43,30 @@ describe("generateLeagueName", () => {
   it("combines an adjective and noun", () => {
     const name = generateLeagueName(seq([0, 0]));
     expect(name.split(" ")).toHaveLength(2);
+  });
+});
+
+describe("isValidLeagueName", () => {
+  it("accepts a non-blank name within the length cap", () => {
+    expect(isValidLeagueName("Office World Cup")).toBe(true);
+    expect(isValidLeagueName("a".repeat(LEAGUE_NAME_MAX))).toBe(true);
+  });
+
+  it("rejects blank, whitespace-only, or over-long names", () => {
+    expect(isValidLeagueName("")).toBe(false);
+    expect(isValidLeagueName("   ")).toBe(false);
+    expect(isValidLeagueName("a".repeat(LEAGUE_NAME_MAX + 1))).toBe(false);
+  });
+});
+
+describe("inviteUrl", () => {
+  it("builds a /join/<token> URL from the origin", () => {
+    expect(inviteUrl("https://wc.example.com", "abc123")).toBe(
+      "https://wc.example.com/join/abc123",
+    );
+  });
+
+  it("does not double up on a trailing slash in the origin", () => {
+    expect(inviteUrl("https://wc.example.com/", "tok")).toBe("https://wc.example.com/join/tok");
   });
 });

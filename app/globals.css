@@ -300,6 +300,25 @@ a {
   background: rgba(255, 255, 255, 0.08);
 }
 
+/* ── Invite link (post-creation share screen) ─────────────────── */
+.invite-link {
+  display: flex;
+  align-items: center;
+  background: var(--surface);
+  border: 1px dashed var(--gold);
+  border-radius: var(--radius-input);
+  padding: var(--sp-3) var(--sp-4);
+  min-height: 44px;
+}
+.invite-url {
+  font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  font-size: 0.9rem;
+  color: var(--gold);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 /* ── App shell (nav) ──────────────────────────────────────────── */
 .appbar {
   position: sticky;
@@ -317,6 +336,28 @@ a {
   font-weight: 700;
   display: flex;
   flex-direction: column;
+  min-width: 0;
+}
+.appbar-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  flex-shrink: 0;
+}
+/* On narrow screens, collapse the "Create League" button to its icon (the link
+   keeps an aria-label, so the accessible name is preserved). */
+@media (max-width: 400px) {
+  .appbar-create-label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+    border: 0;
+  }
 }
 .appbar .title small {
   font-weight: 400;

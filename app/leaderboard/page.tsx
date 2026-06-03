@@ -9,6 +9,7 @@ import { LeaderboardRow } from "@/components/LeaderboardRow";
 import { SkeletonList } from "@/components/SkeletonRow";
 import { EmptyState } from "@/components/EmptyState";
 import { MatchRow } from "@/components/MatchRow";
+import { Toast, useToast } from "@/components/Toast";
 import { useSession } from "@/components/useSession";
 import { MATCHES, ROUNDS, isLocked } from "@/lib/matches";
 import { computeStandings, scorePrediction } from "@/lib/scoring";
@@ -21,6 +22,7 @@ type TabId = "standings" | "mypicks";
 export default function LeaderboardPage() {
   const router = useRouter();
   const { loading, user, league } = useSession();
+  const { message, show } = useToast();
   const [now] = useState(() => Date.now());
   const [tab, setTab] = useState<TabId>("standings");
   const [skeleton, setSkeleton] = useState(true);
@@ -30,6 +32,18 @@ export default function LeaderboardPage() {
   useEffect(() => {
     if (!loading && (!user || !league)) router.replace("/");
   }, [loading, user, league, router]);
+
+  // Confirm a just-completed join-via-link (?joined=1), then strip the param so
+  // a refresh doesn't re-toast. Read from the URL directly to avoid a Suspense
+  // boundary for useSearchParams.
+  useEffect(() => {
+    if (typeof window === "undefined" || !league) return;
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("joined")) {
+      show(`You joined ${league.name}!`);
+      window.history.replaceState(null, "", "/leaderboard");
+    }
+  }, [league, show]);
 
   // Load every member's predictions for this league, then compute standings and
   // the caller's own picks from the same payload.
@@ -153,6 +167,8 @@ export default function LeaderboardPage() {
           )}
         </div>
       )}
+
+      <Toast message={message} />
     </AppShell>
   );
 }

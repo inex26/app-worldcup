@@ -40,12 +40,14 @@ export interface Member {
   displayName: string;
 }
 
-/** A league: id (uuid), name, share code, and its members. */
+/** A league: id (uuid), name, share code, secure invite token, and its members. */
 export interface League {
   /** Supabase row id (uuid) — used to scope prediction/membership queries. */
   id: string;
   name: string;
   code: string;
+  /** High-entropy token for the shareable invite link (not guessable). */
+  inviteToken: string;
   members: Member[];
 }
 

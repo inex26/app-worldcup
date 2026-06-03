@@ -17,12 +17,21 @@ create extension if not exists pgcrypto;
 -- ── Tables ──────────────────────────────────────────────────────────────────
 
 create table if not exists public.leagues (
-  id          uuid primary key default gen_random_uuid(),
-  name        text not null,
-  invite_code text not null unique,
-  created_by  uuid not null default auth.uid() references auth.users (id) on delete cascade,
-  created_at  timestamptz not null default now()
+  id           uuid primary key default gen_random_uuid(),
+  name         text not null,
+  invite_code  text not null unique,
+  -- Secure, hard-to-guess token for the shareable invite link. 16 random bytes
+  -- = 128 bits of entropy, hex-encoded (32 chars). The DB unique constraint
+  -- guards against the (astronomically unlikely) collision.
+  invite_token text not null unique default encode(gen_random_bytes(16), 'hex'),
+  created_by   uuid not null default auth.uid() references auth.users (id) on delete cascade,
+  created_at   timestamptz not null default now()
 );
+
+-- Migration for projects created before invite_token existed (idempotent).
+alter table public.leagues
+  add column if not exists invite_token text not null default encode(gen_random_bytes(16), 'hex');
+create unique index if not exists leagues_invite_token_key on public.leagues (invite_token);
 
 create table if not exists public.league_members (
   id           uuid primary key default gen_random_uuid(),
@@ -209,8 +218,55 @@ begin
 end;
 $$;
 
+-- Resolve a league's name from a secure invite token, without joining. Lets the
+-- invite-link screen show "Join [League Name]" to a not-yet-member. Returns
+-- null if the token is unknown. SECURITY DEFINER so it can read the league
+-- without granting broad SELECT; the 128-bit token is the access control.
+create or replace function public.peek_league_by_token(p_token text)
+returns text
+language sql
+security definer
+set search_path = public
+stable
+as $$
+  select name from public.leagues where invite_token = p_token;
+$$;
+
+-- Join a league via its secure invite token. Idempotent: re-joining a league
+-- the caller is already in is a no-op (returns the league). Raises if the token
+-- is unknown so the client can show its "invalid link" state.
+create or replace function public.join_league_by_token(
+  p_token text,
+  p_display_name text
+)
+returns public.leagues
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_league public.leagues;
+begin
+  select * into v_league
+  from public.leagues
+  where invite_token = p_token;
+
+  if not found then
+    raise exception 'league not found' using errcode = 'no_data_found';
+  end if;
+
+  insert into public.league_members (league_id, user_id, display_name)
+  values (v_league.id, auth.uid(), p_display_name)
+  on conflict (league_id, user_id) do nothing;
+
+  return v_league;
+end;
+$$;
+
 grant execute on function public.create_league(text, text, text) to authenticated;
 grant execute on function public.join_league(text, text) to authenticated;
+grant execute on function public.peek_league_by_token(text) to authenticated;
+grant execute on function public.join_league_by_token(text, text) to authenticated;
 grant execute on function public.is_league_member(uuid) to authenticated;
 
 -- ── Seed: 48 group-stage matches (mirrors lib/matches.ts) ────────────────────
