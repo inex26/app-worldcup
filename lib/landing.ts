@@ -21,7 +21,7 @@ export const HERO_H1 = "The Free World Cup Fantasy League & Prediction Game";
 
 /** Generic sub-headline used when GEO detection is unavailable or unknown. */
 export const HERO_SUB_GENERIC =
-  "Predict every group-stage score, invite your friends, and climb your own private leaderboard — no sign-up, no cost.";
+  "Predict every group-stage score, invite your friends, and climb your own private leaderboard — no sign-up to start, no cost.";
 
 /** ── Real, honest tournament facts for the social-proof / stats strip ────────
  * These are derived from the seeded tournament data, not fabricated engagement
@@ -71,7 +71,7 @@ export const FAQS: Faq[] = [
   },
   {
     q: "Is it free to play?",
-    a: "Yes. Creating a league, inviting friends, and making predictions are completely free. There is no sign-up, subscription, or in-app purchase.",
+    a: "Yes. Creating a league, inviting friends, and making predictions are completely free — no subscription or in-app purchase, and no sign-up needed to start playing.",
   },
   {
     q: "How does scoring work?",
@@ -83,7 +83,7 @@ export const FAQS: Faq[] = [
   },
   {
     q: "Do I need to create an account?",
-    a: "No. You can create or join a league and start predicting without registering, entering an email, or installing an app.",
+    a: "No account is needed to start. You can create or join a league and start predicting right away — no registration, email, or app to install. If you'd like to play across devices, you can optionally save your account with an email and sign in elsewhere using a one-time code.",
   },
   {
     q: "When do predictions lock?",
@@ -134,5 +134,5 @@ const COUNTRY_TO_TEAM: Record<string, string> = {
 export function heroSubheadline(countryCode: string | null | undefined): string {
   const team = countryCode ? COUNTRY_TO_TEAM[countryCode.toUpperCase()] : undefined;
   if (!team) return HERO_SUB_GENERIC;
-  return `Think ${team} can go all the way? Predict every group-stage score, invite your friends, and climb your own private leaderboard — free, no sign-up.`;
+  return `Think ${team} can go all the way? Predict every group-stage score, invite your friends, and climb your own private leaderboard — free, no sign-up to start.`;
 }
