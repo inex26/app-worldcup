@@ -85,6 +85,18 @@ a {
   place-items: center;
   padding: var(--sp-5) var(--sp-4);
 }
+/* Modal-style card pages (e.g. Create league): keep the card centered when it
+   fits, but on short/mobile viewports align to the top and let the page scroll
+   so the whole card stays reachable — `safe` prevents the top from being
+   clipped (e.g. landscape phones, or when the keyboard shrinks the view). */
+.center-page--modal {
+  place-items: safe center;
+}
+@media (max-height: 600px) {
+  .center-page--modal {
+    padding-block: var(--sp-4);
+  }
+}
 .stack {
   display: flex;
   flex-direction: column;

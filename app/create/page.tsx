@@ -47,7 +47,7 @@ export default function CreatePage() {
       : "";
 
   return (
-    <main className="center-page">
+    <main className="center-page center-page--modal">
       <div className="card stack" style={{ width: "min(480px, 100%)" }}>
         {!league ? (
           <>
