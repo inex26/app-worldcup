@@ -3,7 +3,7 @@
 import Link from "next/link";
 import type { League } from "@/lib/types";
 import { Toast, copyText, useToast } from "./Toast";
-import { CopyIcon } from "./icons";
+import { CopyIcon, PlusIcon } from "./icons";
 
 type Tab = "predictions" | "leaderboard";
 
@@ -34,15 +34,21 @@ export function AppShell({ league, active, children }: AppShellProps) {
             {league.members.length} {league.members.length === 1 ? "member" : "members"}
           </small>
         </span>
-        <button
-          type="button"
-          className="code-chip"
-          onClick={copyCode}
-          aria-label={`Copy league code ${league.code}`}
-        >
-          {league.code}
-          <CopyIcon width={16} height={16} />
-        </button>
+        <div className="appbar-actions">
+          <Link className="btn btn-outlined btn-sm" href="/create" aria-label="Create League">
+            <PlusIcon width={16} height={16} />
+            <span className="appbar-create-label">Create League</span>
+          </Link>
+          <button
+            type="button"
+            className="code-chip"
+            onClick={copyCode}
+            aria-label={`Copy league code ${league.code}`}
+          >
+            {league.code}
+            <CopyIcon width={16} height={16} />
+          </button>
+        </div>
       </header>
 
       <main className="page">{children}</main>

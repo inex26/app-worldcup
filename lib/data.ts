@@ -9,12 +9,12 @@
  */
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { getBrowserClient } from "./supabase/browser";
-import { generateCode, generateLeagueName } from "./league";
+import { generateCode } from "./league";
 import type { CurrentUser, League, Member, Prediction } from "./types";
 
 /** Postgres SQLSTATE codes we branch on. */
 const UNIQUE_VIOLATION = "23505";
-const NO_DATA_FOUND = "P0002"; // raised by join_league() for an unknown code
+const NO_DATA_FOUND = "P0002"; // raised by join_league*() for an unknown code/token
 
 /** Ensure there is a session, creating an anonymous one on first visit. */
 export async function ensureUserId(): Promise<string> {
@@ -29,12 +29,18 @@ export async function ensureUserId(): Promise<string> {
   return data.user.id;
 }
 
+/** A `leagues` row as returned by our queries / RPCs. */
+type LeagueRow = { id: string; name: string; invite_code: string; invite_token: string };
+
 /** Map a `leagues` row + its members into the app's League shape. */
-function toLeague(
-  row: { id: string; name: string; invite_code: string },
-  members: Member[],
-): League {
-  return { id: row.id, name: row.name, code: row.invite_code, members };
+function toLeague(row: LeagueRow, members: Member[]): League {
+  return {
+    id: row.id,
+    name: row.name,
+    code: row.invite_code,
+    inviteToken: row.invite_token,
+    members,
+  };
 }
 
 async function fetchMembers(supabase: SupabaseClient, leagueId: string): Promise<Member[]> {
@@ -50,7 +56,7 @@ async function fetchMembers(supabase: SupabaseClient, leagueId: string): Promise
 async function fetchLeagueById(supabase: SupabaseClient, leagueId: string): Promise<League | null> {
   const { data, error } = await supabase
     .from("leagues")
-    .select("id, name, invite_code")
+    .select("id, name, invite_code, invite_token")
     .eq("id", leagueId)
     .maybeSingle();
   if (error) throw error;
@@ -92,24 +98,24 @@ export async function loadSession(): Promise<{
 }
 
 /**
- * Create a new league with the caller as its first member. The friendly name +
- * share code are generated client-side; on the rare invite-code collision we
- * retry with a fresh code.
+ * Create a new league with the caller as its first member. The caller picks the
+ * league name; the share code is generated client-side and the secure invite
+ * token is generated server-side. On the rare invite-code collision we retry
+ * with a fresh code.
  */
-export async function createLeague(displayName: string): Promise<League> {
+export async function createLeague(displayName: string, leagueName: string): Promise<League> {
   const supabase = getBrowserClient();
   await ensureUserId();
-  const name = generateLeagueName();
 
   for (let attempt = 0; attempt < 5; attempt++) {
     const code = generateCode();
     const { data, error } = await supabase.rpc("create_league", {
-      p_name: name,
+      p_name: leagueName,
       p_invite_code: code,
       p_display_name: displayName,
     });
     if (!error) {
-      const row = data as { id: string; name: string; invite_code: string };
+      const row = data as LeagueRow;
       const members = await fetchMembers(supabase, row.id);
       return toLeague(row, members);
     }
@@ -136,7 +142,46 @@ export async function joinLeagueByCode(code: string, displayName: string): Promi
     throw error;
   }
 
-  const row = data as { id: string; name: string; invite_code: string };
+  const row = data as LeagueRow;
+  const members = await fetchMembers(supabase, row.id);
+  return toLeague(row, members);
+}
+
+/**
+ * Look up a league's name from a secure invite token, without joining. Used by
+ * the invite-link screen to confirm "Join [League Name]" before the user
+ * commits. Resolves to `null` when the token is unknown (invalid/expired link).
+ */
+export async function peekLeagueName(token: string): Promise<string | null> {
+  const supabase = getBrowserClient();
+  await ensureUserId();
+  const { data, error } = await supabase.rpc("peek_league_by_token", { p_token: token });
+  if (error) throw error;
+  return (data as string | null) ?? null;
+}
+
+/**
+ * Join a league via its secure invite token. Resolves to the joined League, or
+ * `null` if the token is unknown. Idempotent — re-joining a league you're
+ * already in just returns it.
+ */
+export async function joinLeagueByToken(
+  token: string,
+  displayName: string,
+): Promise<League | null> {
+  const supabase = getBrowserClient();
+  await ensureUserId();
+
+  const { data, error } = await supabase.rpc("join_league_by_token", {
+    p_token: token,
+    p_display_name: displayName,
+  });
+  if (error) {
+    if (error.code === NO_DATA_FOUND) return null;
+    throw error;
+  }
+
+  const row = data as LeagueRow;
   const members = await fetchMembers(supabase, row.id);
   return toLeague(row, members);
 }

@@ -73,14 +73,17 @@ supabase/
   localStorage, no manual token passing.
 
 ### Data model (see `supabase/schema.sql`)
-- `leagues` — name, unique `invite_code`, `created_by`.
+- `leagues` — name, unique `invite_code` (short, typed-in join code), unique `invite_token`
+  (128-bit, hard-to-guess token behind the shareable invite link), `created_by`.
 - `league_members` — `(league_id, user_id)` unique; carries each member's `display_name`.
 - `matches` — global tournament reference data (the 48 group-stage games), seeded by the migration.
 - `predictions` — one row per `(user_id, league_id, match_id)`; a user reads all predictions in
   their league (leaderboard) but can only write their own.
 
 Create and join go through the `create_league` / `join_league` SQL functions so a league
-can be looked up by invite code without exposing every league via `SELECT`.
+can be looked up by invite code without exposing every league via `SELECT`. The invite-link
+flow adds `peek_league_by_token` (resolve a league's name from the token, to confirm before
+joining) and `join_league_by_token` (auto-join via the secure link).
 
 ## Known limitation (v1)
 Anonymous sessions are tied to the browser cookie. Clearing cookies / using a different

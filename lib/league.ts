@@ -24,9 +24,27 @@ export function isValidCode(code: string): boolean {
 const ADJECTIVES = ["Golden", "Mighty", "Roaring", "Electric", "Iron", "Cosmic", "Wild", "Royal"];
 const NOUNS = ["Strikers", "Eagles", "Lions", "Rovers", "Galaxy", "Titans", "Comets", "Hawks"];
 
-/** Generate a friendly league name (e.g. "Golden Strikers"). */
+/** Generate a friendly league name (e.g. "Golden Strikers"), used as a placeholder. */
 export function generateLeagueName(rand: () => number = Math.random): string {
   const adj = ADJECTIVES[Math.floor(rand() * ADJECTIVES.length)];
   const noun = NOUNS[Math.floor(rand() * NOUNS.length)];
   return `${adj} ${noun}`;
+}
+
+/** Max length for a user-chosen league name (see PRD: League name, max 30 chars). */
+export const LEAGUE_NAME_MAX = 30;
+
+/** Validate a user-entered league name: non-blank and within the length cap. */
+export function isValidLeagueName(name: string): boolean {
+  const trimmed = name.trim();
+  return trimmed.length > 0 && trimmed.length <= LEAGUE_NAME_MAX;
+}
+
+/**
+ * Build the shareable invite URL for a league from its secure invite token. The
+ * token (≥128-bit, generated server-side) is what makes the link hard to guess;
+ * see supabase/schema.sql `leagues.invite_token`.
+ */
+export function inviteUrl(origin: string, token: string): string {
+  return `${origin.replace(/\/+$/, "")}/join/${token}`;
 }
