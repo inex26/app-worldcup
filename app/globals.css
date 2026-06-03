@@ -643,6 +643,235 @@ a {
   font-size: 3.5rem;
 }
 
+/* ── Landing page ─────────────────────────────────────────────── */
+/* Skip link: visually hidden until focused, then pinned top-left. */
+.skip-link {
+  position: absolute;
+  left: var(--sp-2);
+  top: -48px;
+  z-index: 60;
+  background: var(--card);
+  color: var(--text);
+  padding: var(--sp-2) var(--sp-3);
+  border-radius: var(--radius-input);
+  text-decoration: none;
+  transition: top 0.15s ease;
+}
+.skip-link:focus {
+  top: var(--sp-2);
+}
+
+.landing-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-3);
+  max-width: 880px;
+  margin: 0 auto;
+  padding: var(--sp-3) var(--sp-4);
+}
+.landing-logo {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-2);
+  font-weight: 700;
+  color: var(--text);
+  text-decoration: none;
+}
+
+.landing {
+  max-width: 880px;
+  margin: 0 auto;
+  padding: var(--sp-5) var(--sp-4) calc(var(--sp-6) * 3);
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--sp-6) * 1.5);
+}
+
+/* Hero */
+.landing-hero {
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--sp-4);
+  padding-top: var(--sp-5);
+}
+.landing-hero h1 {
+  font-size: clamp(1.8rem, 6vw, 3rem);
+  line-height: 1.15;
+  max-width: 16ch;
+  margin: 0;
+}
+.hero-sub {
+  font-size: clamp(1rem, 2.5vw, 1.2rem);
+  color: var(--muted);
+  max-width: 52ch;
+  margin: 0;
+}
+.hero-ctas {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--sp-3);
+  width: 100%;
+}
+.hero-ctas .btn {
+  flex: 1 1 auto;
+  min-width: 200px;
+  font-size: 1.05rem;
+  padding: 0 var(--sp-5);
+  min-height: 52px;
+}
+.resume-banner {
+  width: 100%;
+  max-width: 460px;
+  text-align: left;
+}
+
+/* Social proof strip — reserve height to avoid layout shift */
+.stats-strip {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--sp-4);
+  min-height: 56px;
+  padding: var(--sp-4);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+}
+.stat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 96px;
+  flex: 1 1 0;
+}
+.stat-num {
+  font-size: clamp(1.6rem, 5vw, 2.2rem);
+  font-weight: 800;
+  color: var(--gold);
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+.stat-label {
+  font-size: 0.85rem;
+  color: var(--muted);
+  margin-top: var(--sp-1);
+  text-align: center;
+}
+
+/* Sections */
+.landing-section h2 {
+  text-align: center;
+  margin-bottom: var(--sp-5);
+}
+
+/* How it works */
+.steps {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: var(--sp-4);
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
+.step {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+}
+.step-num {
+  display: inline-grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: rgba(244, 162, 97, 0.18);
+  color: var(--gold);
+  font-weight: 800;
+}
+.step h3 {
+  margin: var(--sp-1) 0 0;
+}
+
+/* FAQ */
+.faq {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+}
+.faq-item dt {
+  margin: 0;
+}
+.faq-item dd {
+  margin: var(--sp-2) 0 0;
+}
+
+/* Closing CTA */
+.landing-cta {
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--sp-4);
+}
+.landing-cta h2 {
+  margin: 0;
+}
+
+/* Footer */
+.landing-footer {
+  border-top: 1px solid var(--border);
+  background: var(--surface);
+  padding: var(--sp-5) var(--sp-4);
+}
+.landing-footer nav ul {
+  list-style: none;
+  margin: 0 auto var(--sp-3);
+  padding: 0;
+  max-width: 880px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-3) var(--sp-5);
+  justify-content: center;
+}
+.landing-footer p {
+  text-align: center;
+  margin: 0;
+  font-size: 0.85rem;
+}
+
+/* Mobile sticky CTA bar — hidden by default + on larger viewports */
+.sticky-ctas {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 40;
+  display: none;
+  gap: var(--sp-2);
+  padding: var(--sp-2) var(--sp-4);
+  padding-bottom: calc(var(--sp-2) + env(safe-area-inset-bottom));
+  background: var(--surface);
+  border-top: 1px solid var(--border);
+  box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.3);
+  transform: translateY(110%);
+  transition: transform 0.2s ease;
+}
+@media (max-width: 640px) {
+  .sticky-ctas[data-visible="true"] {
+    display: flex;
+    transform: translateY(0);
+  }
+  .sticky-ctas .btn {
+    flex: 1 1 0;
+    min-width: 0;
+  }
+}
+
 /* ── Reduced motion ───────────────────────────────────────────── */
 @media (prefers-reduced-motion: reduce) {
   *,
