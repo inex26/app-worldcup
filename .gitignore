@@ -1,0 +1,10 @@
+node_modules
+.next
+out
+build
+*.tsbuildinfo
+
+# local env (real values live in Vercel, never committed)
+.env*.local
+
+.DS_Store
