@@ -18,6 +18,14 @@ league's data and lets them edit only their own predictions.
    **Authentication → Sign In / Providers** and turn on **Allow anonymous sign-ins**.
    The app cannot create a session without this.
 
+   **For cross-device access** (see [Cross-device sign-in](#cross-device-sign-in)),
+   also enable the **Email** provider on the same screen. The flow uses emailed
+   **one-time codes**, so each email template under **Authentication → Emails**
+   (Magic Link, Confirm signup, Change Email Address) must include the
+   `{{ .Token }}` variable — the default templates only contain the magic link.
+   With a fresh project's built-in email sender this works out of the box for low
+   volume; configure SMTP for production.
+
 3. **Run the schema.** Open **SQL Editor**, paste the entire contents of
    [`supabase/schema.sql`](supabase/schema.sql), and run it. It creates the tables,
    RLS policies, the create/join RPCs, and seeds the 48 group-stage matches. It is
@@ -85,10 +93,26 @@ can be looked up by invite code without exposing every league via `SELECT`. The 
 flow adds `peek_league_by_token` (resolve a league's name from the token, to confirm before
 joining) and `join_league_by_token` (auto-join via the secure link).
 
-## Known limitation (v1)
-Anonymous sessions are tied to the browser cookie. Clearing cookies / using a different
-browser starts a fresh identity. An email-link upgrade to claim an existing identity is
-planned for v2.
+## Cross-device sign-in
+By default every visitor is **anonymous**, and that identity lives in the current
+browser's cookie — so a different browser or device starts fresh with no leagues.
+To carry a league across devices, a user **saves their account** by attaching an email:
+
+1. **Save (device A):** in a league, tap **Sync** in the top bar (`/account`), enter an
+   email, and confirm the emailed one-time code. This attaches the email to the *same*
+   anonymous user — no new account, nothing moves.
+2. **Sign in (device B):** open the app, tap **Sign in** (`/account`), enter that email,
+   and confirm the code. The session becomes the existing account, so the league,
+   members, and predictions all appear — enforced by the existing Row Level Security.
+
+Email is **optional**: you can still create, join, and predict with zero sign-up. It only
+exists to recover the same identity elsewhere. Implementation lives in `lib/data.ts`
+(`startEmailLink` / `confirmEmailLink` / `startEmailSignIn` / `confirmEmailSignIn`),
+`lib/auth.ts` (validation), and `app/account/page.tsx` (the adaptive screen).
+
+### Known limitation
+A one-time code is required on each new device (there is no "remember this device"
+beyond the browser cookie), and an account maps to a single email.
 
 ## Deploy (Vercel)
 Connect this repo to Vercel — it auto-detects Next.js. Set `NEXT_PUBLIC_SUPABASE_URL` and

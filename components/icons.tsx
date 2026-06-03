@@ -82,6 +82,27 @@ export function PlusIcon(props: SVGProps<SVGSVGElement>) {
   );
 }
 
+export function DevicesIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      width="18"
+      height="18"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+      {...props}
+    >
+      <rect x="2" y="4" width="14" height="10" rx="2" />
+      <path d="M2 18h10" />
+      <rect x="16" y="9" width="6" height="11" rx="1.5" />
+    </svg>
+  );
+}
+
 export function ChevronIcon(props: SVGProps<SVGSVGElement>) {
   return (
     <svg
