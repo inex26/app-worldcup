@@ -54,6 +54,7 @@ export default function JoinByTokenPage({ params }: { params: { token: string } 
         setStatus("invalid");
         return;
       }
+      router.refresh(); // sync server/middleware auth with the just-set session cookie
       router.replace("/predictions");
     } catch (err) {
       console.error("Join via link failed:", err);

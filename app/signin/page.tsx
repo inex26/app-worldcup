@@ -27,6 +27,7 @@ export default function SignInPage() {
     setError(null);
     try {
       await signIn(email, password);
+      router.refresh(); // sync server/middleware auth with the just-set session cookie
       router.push("/predictions");
     } catch (err) {
       console.error("Sign in failed:", err);

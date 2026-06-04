@@ -37,6 +37,7 @@ export default function JoinPage() {
         setError("That invite link is invalid or has expired. Ask your friend for a fresh one.");
         return;
       }
+      router.refresh(); // sync server/middleware auth with the just-set session cookie
       router.push("/predictions");
     } catch (err) {
       console.error("Join league failed:", err);

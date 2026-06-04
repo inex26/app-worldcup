@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Input } from "@/components/Input";
 import { Button } from "@/components/Button";
 import { InviteLink } from "@/components/InviteLink";
@@ -18,6 +19,7 @@ import type { League } from "@/lib/types";
 
 /** Create League: league name + account (username/email/password) → share modal. */
 export default function CreatePage() {
+  const router = useRouter();
   const [leagueName, setLeagueName] = useState("");
   const [creds, setCreds] = useState<Credentials>(EMPTY_CREDENTIALS);
   const [league, setLeague] = useState<League | null>(null);
@@ -35,6 +37,7 @@ export default function CreatePage() {
       await signUp(creds.email, creds.password, creds.username);
       const full = await createLeague(creds.username.trim(), leagueName.trim());
       setLeague(full);
+      router.refresh(); // sync server/middleware auth with the just-set session cookie
     } catch (err) {
       console.error("Create league failed:", err);
       const raw = err instanceof Error ? err.message.toLowerCase() : "";

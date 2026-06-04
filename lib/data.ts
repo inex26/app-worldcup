@@ -26,12 +26,27 @@ const NO_DATA_FOUND = "P0002"; // raised by join_league_by_token() for an unknow
  *  display name — stored in user_metadata and passed to the create/join RPCs. */
 export async function signUp(email: string, password: string, username: string): Promise<void> {
   const supabase = getBrowserClient();
-  const { error } = await supabase.auth.signUp({
+  const { data, error } = await supabase.auth.signUp({
     email: email.trim(),
     password,
     options: { data: { display_name: username.trim() } },
   });
   if (error) throw error;
+  // Sign-up only returns a session when "Confirm email" is OFF. Without a session
+  // the next route has nothing to load and bounces home — so guarantee one here by
+  // signing in. If that fails, email confirmation is on: surface a clear, fixable error.
+  if (!data.session) {
+    const { error: signInError } = await supabase.auth.signInWithPassword({
+      email: email.trim(),
+      password,
+    });
+    if (signInError) {
+      throw new Error(
+        "Account created, but sign-in is blocked. In Supabase → Authentication → Providers → " +
+          "Email, turn OFF “Confirm email”, then sign in.",
+      );
+    }
+  }
 }
 
 /** Sign in with email + password (restores the account's session on any device). */
