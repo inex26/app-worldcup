@@ -102,16 +102,22 @@ device you stay signed in** until you sign out. To use the same account on anoth
 enforced by Row Level Security on `auth.uid()`. Implementation: `lib/data.ts`
 (`signUp` / `signIn` / `signOut`, `loadSession`), `lib/auth.ts` (validation), `app/signin/page.tsx`.
 
+**Forgot password:** `/signin` → "Forgot password?" → `/reset` emails a link to `/reset/update`, which
+establishes a recovery session and lets the user set a new password (`requestPasswordReset` /
+`ensureRecoverySession` / `updatePassword` in `lib/data.ts`).
+
 ### Supabase dashboard setup (one-time)
 1. **Authentication → Providers → Email: ON**, and **"Confirm email": OFF** (sign-up returns an
    active session immediately — no inbox round-trip).
 2. **Authentication → "Allow anonymous sign-ins": OFF.**
-3. *(Optional)* set a minimum password length (8) and enable leaked-password protection.
-4. Run `supabase/schema.sql` in the SQL editor (idempotent). **No SMTP needed.**
+3. **Authentication → URL Configuration → Redirect URLs:** add `<origin>/reset/update` for each
+   environment (e.g. `http://localhost:3000/reset/update`, the Vercel preview, and production) so the
+   password-reset link is allowed to return to the app.
+4. *(Optional)* set a minimum password length (8) and enable leaked-password protection.
+5. Run `supabase/schema.sql` in the SQL editor (idempotent).
 
-### Known limitation
-No self-serve password reset yet (kept intentionally simple). Forgotten passwords need a manual
-reset in the Supabase dashboard until a recovery flow is added.
+> **Email sending:** password-reset emails use Supabase's built-in mailer, which is **rate-limited**
+> (a few/hour) — fine for testing. For real volume, configure **custom SMTP** in Auth settings.
 
 ## Deploy (Vercel)
 Connect this repo to Vercel — it auto-detects Next.js. Set `NEXT_PUBLIC_SUPABASE_URL` and

@@ -90,10 +90,6 @@ export default function HomePage() {
 
   return (
     <>
-      <a className="skip-link" href="#main">
-        Skip to main content
-      </a>
-
       <header className="landing-nav">
         <Link href="/" className="landing-logo">
           <TrophyIcon width={22} height={22} style={{ color: "var(--gold)" }} />

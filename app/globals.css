@@ -403,8 +403,9 @@ a {
 .appbar-actions {
   display: flex;
   align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap; /* buttons drop to a second row instead of forcing the bar wider than the screen */
   gap: var(--sp-2);
-  flex-shrink: 0;
 }
 /* On narrow screens, collapse the nav buttons to their icons (each link keeps an
    aria-label, so the accessible name is preserved). */
@@ -495,6 +496,9 @@ a {
 
 /* ── Match row ────────────────────────────────────────────────── */
 .match-row {
+  /* <fieldset> defaults to min-inline-size:min-content, so it won't shrink and
+     overflows the screen — reset it so the row fits the viewport on mobile. */
+  min-width: 0;
   border: 1px solid var(--border);
   border-radius: var(--radius-card);
   background: var(--card);

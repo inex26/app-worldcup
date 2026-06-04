@@ -75,6 +75,44 @@ export async function signOut(): Promise<void> {
   await getBrowserClient().auth.signOut();
 }
 
+// ── Password recovery ────────────────────────────────────────────────────────
+// Requires the reset-link target to be whitelisted in Supabase → Authentication →
+// URL Configuration → Redirect URLs (e.g. https://<app>/reset/update).
+
+/** Email a password-reset link that returns to /reset/update to set a new password. */
+export async function requestPasswordReset(email: string): Promise<void> {
+  const supabase = getBrowserClient();
+  const redirectTo =
+    typeof window !== "undefined" ? `${window.location.origin}/reset/update` : undefined;
+  const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), { redirectTo });
+  if (error) throw error;
+}
+
+/** Set a new password for the active (recovery) session. */
+export async function updatePassword(password: string): Promise<void> {
+  const supabase = getBrowserClient();
+  const { error } = await supabase.auth.updateUser({ password });
+  if (error) throw error;
+}
+
+/**
+ * Make sure the recovery session from a reset-email link is active before showing
+ * the new-password form. Supabase may auto-detect the token in the URL; if not,
+ * exchange the PKCE `code` query param. Returns true when a session is ready.
+ */
+export async function ensureRecoverySession(): Promise<boolean> {
+  const supabase = getBrowserClient();
+  let { data } = await supabase.auth.getSession();
+  if (!data.session && typeof window !== "undefined") {
+    const code = new URLSearchParams(window.location.search).get("code");
+    if (code) {
+      const { error } = await supabase.auth.exchangeCodeForSession(code);
+      if (!error) ({ data } = await supabase.auth.getSession());
+    }
+  }
+  return !!data.session;
+}
+
 /** A `leagues` row as returned by our queries / RPCs. */
 type LeagueRow = { id: string; name: string; invite_code: string; invite_token: string };
 

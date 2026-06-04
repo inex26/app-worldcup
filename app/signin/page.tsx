@@ -85,6 +85,10 @@ export default function SignInPage() {
         </form>
 
         <p className="muted" style={{ fontSize: "0.9rem", textAlign: "center" }}>
+          <Link href="/reset">Forgot password?</Link>
+        </p>
+
+        <p className="muted" style={{ fontSize: "0.9rem", textAlign: "center" }}>
           No account yet?{" "}
           <Link href="/create">Create a league</Link> or <Link href="/join">join one</Link>.
         </p>
