@@ -44,6 +44,35 @@ export async function ensureUserId(): Promise<string> {
   return (await ensureUser()).id;
 }
 
+// ── Email + password auth (Slice A) ──────────────────────────────────────────
+// The username is the display name shown in leagues; email+password is the login
+// (recoverable). Requires Supabase Auth → Email provider ON with "Confirm email"
+// OFF (so sign-up returns an active session immediately, no inbox round-trip).
+
+/** Create an account (email + password) and start its session. `username` is the
+ *  display name — stored in user_metadata and passed to the create/join RPCs. */
+export async function signUp(email: string, password: string, username: string): Promise<void> {
+  const supabase = getBrowserClient();
+  const { error } = await supabase.auth.signUp({
+    email: email.trim(),
+    password,
+    options: { data: { display_name: username.trim() } },
+  });
+  if (error) throw error;
+}
+
+/** Sign in with email + password (restores the account's session on any device). */
+export async function signIn(email: string, password: string): Promise<void> {
+  const supabase = getBrowserClient();
+  const { error } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
+  if (error) throw error;
+}
+
+/** Sign out — clears the cookie session on this device. */
+export async function signOut(): Promise<void> {
+  await getBrowserClient().auth.signOut();
+}
+
 /** A `leagues` row as returned by our queries / RPCs. */
 type LeagueRow = { id: string; name: string; invite_code: string; invite_token: string };
 
