@@ -48,3 +48,14 @@ export function isValidLeagueName(name: string): boolean {
 export function inviteUrl(origin: string, token: string): string {
   return `${origin.replace(/\/+$/, "")}/join/${token}`;
 }
+
+/**
+ * Extract the invite token from a pasted value — accepts a full invite URL
+ * (`https://…/join/<token>`) or a bare token. Returns "" if nothing usable.
+ */
+export function extractToken(input: string): string {
+  const trimmed = input.trim();
+  const fromUrl = trimmed.match(/\/join\/([^/?#\s]+)/i);
+  if (fromUrl) return fromUrl[1];
+  return /^[^/\s]+$/.test(trimmed) ? trimmed : "";
+}

@@ -35,11 +35,3 @@ export function isValidEmail(email: string): boolean {
   if (trimmed.length === 0 || trimmed.length > EMAIL_MAX) return false;
   return /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(trimmed);
 }
-
-/** Supabase emails a six-digit one-time code. */
-export const OTP_LENGTH = 6;
-
-/** Validate the shape of the emailed one-time code (exactly six digits). */
-export function isValidOtpCode(code: string): boolean {
-  return new RegExp(`^\\d{${OTP_LENGTH}}$`).test(code.trim());
-}

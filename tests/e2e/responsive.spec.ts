@@ -124,7 +124,9 @@ test("fits the phone: create → share invite modal", async ({ page }) => {
 
   await page.goto("/create", { waitUntil: "networkidle" });
   await page.getByLabel("League name").fill("Vasco");
-  await page.getByLabel("Your display name").fill("Vasco");
+  await page.getByLabel("Username").fill("Vasco");
+  await page.getByLabel("Email").fill("vasco@example.com");
+  await page.getByLabel("Password").fill("hunter22xyz");
   await page.getByRole("button", { name: "Create league" }).click();
 
   // Wait for the share state (the invite URL is what overflows).

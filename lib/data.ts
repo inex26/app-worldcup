@@ -1,11 +1,11 @@
 /**
- * Supabase data access for the client screens. Mirrors the old localStorage
- * `storage.ts` surface but talks to the shared backend via the browser client.
+ * Supabase data access for the client screens.
  *
- * Identity comes from Supabase Auth (anonymous sign-in): the signed-in user's
- * `auth.uid()` is the member id. Row Level Security (see supabase/schema.sql)
+ * Identity comes from Supabase Auth (email + password). The signed-in user's
+ * `auth.uid()` is the member id; Row Level Security (see supabase/schema.sql)
  * enforces that a user only reads their league's data and only writes their own
- * predictions, so these queries can stay simple.
+ * predictions, so these queries can stay simple. The username chosen at sign-up
+ * is the display name shown in leagues (passed to the create/join RPCs).
  */
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { getBrowserClient } from "./supabase/browser";
@@ -14,40 +14,13 @@ import type { CurrentUser, League, Member, Prediction } from "./types";
 
 /** Postgres SQLSTATE codes we branch on. */
 const UNIQUE_VIOLATION = "23505";
-const NO_DATA_FOUND = "P0002"; // raised by join_league*() for an unknown code/token
+const NO_DATA_FOUND = "P0002"; // raised by join_league_by_token() for an unknown token
 
-/** The signed-in user's id plus their email (null while the session is anonymous). */
-export interface AccountIdentity {
-  id: string;
-  email: string | null;
-}
-
-/**
- * Ensure there is a session, creating an anonymous one on first visit, and
- * return the user's id + email. Email is null until the user attaches one via
- * `startEmailLink` (the cross-device flow); see lib/auth.ts.
- */
-export async function ensureUser(): Promise<AccountIdentity> {
-  const supabase = getBrowserClient();
-  const { data: sessionData } = await supabase.auth.getSession();
-  if (!sessionData.session) {
-    const { error } = await supabase.auth.signInAnonymously();
-    if (error) throw error;
-  }
-  const { data, error } = await supabase.auth.getUser();
-  if (error || !data.user) throw error ?? new Error("No authenticated user");
-  return { id: data.user.id, email: data.user.email ?? null };
-}
-
-/** Ensure there is a session and return just the user id. */
-export async function ensureUserId(): Promise<string> {
-  return (await ensureUser()).id;
-}
-
-// ── Email + password auth (Slice A) ──────────────────────────────────────────
-// The username is the display name shown in leagues; email+password is the login
-// (recoverable). Requires Supabase Auth → Email provider ON with "Confirm email"
-// OFF (so sign-up returns an active session immediately, no inbox round-trip).
+// ── Email + password auth ────────────────────────────────────────────────────
+// Requires Supabase Auth → Email provider ON with "Confirm email" OFF, so sign-up
+// returns an active session immediately (no inbox round-trip). The session is
+// persisted in cookies by @supabase/ssr and refreshed in middleware.ts, so a
+// returning user on the same device stays signed in until they sign out.
 
 /** Create an account (email + password) and start its session. `username` is the
  *  display name — stored in user_metadata and passed to the create/join RPCs. */
@@ -111,15 +84,24 @@ async function fetchLeagueById(supabase: SupabaseClient, leagueId: string): Prom
 
 /**
  * Resolve the current session for `useSession`: the signed-in user plus their
- * most-recently-joined league (the app's single-active-league model). Signs in
- * anonymously if needed.
+ * most-recently-joined league (the app's single-active-league model). Returns
+ * nulls when there is NO session — we never auto-create one (sign-up/sign-in is
+ * explicit). A signed-in user with no league yet is returned with `league: null`.
  */
 export async function loadSession(): Promise<{
   user: CurrentUser | null;
   league: League | null;
 }> {
   const supabase = getBrowserClient();
-  const { id: userId, email } = await ensureUser();
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+  if (!session) return { user: null, league: null };
+
+  const userId = session.user.id;
+  const email = session.user.email ?? null;
+  const metaName =
+    (session.user.user_metadata?.display_name as string | undefined)?.trim() || "";
 
   const { data: membership, error } = await supabase
     .from("league_members")
@@ -130,89 +112,52 @@ export async function loadSession(): Promise<{
     .maybeSingle();
   if (error) throw error;
 
-  if (!membership) return { user: null, league: null };
+  if (!membership) {
+    return { user: { id: userId, displayName: metaName, leagueCode: "", email }, league: null };
+  }
 
   const league = await fetchLeagueById(supabase, membership.league_id);
-  if (!league) return { user: null, league: null };
-
   return {
-    user: { id: userId, displayName: membership.display_name, leagueCode: league.code, email },
+    user: {
+      id: userId,
+      displayName: membership.display_name,
+      leagueCode: league?.code ?? "",
+      email,
+    },
     league,
   };
 }
 
-// ── Cross-device sign-in (attach an email, then recover it elsewhere) ─────────
-// Anonymous sessions live only in the current browser. To reach the same league
-// from another device, a user attaches an email to their account and later signs
-// in with a one-time code emailed to that address — which restores the *same*
-// auth.uid(), so their membership and predictions come along via RLS. We use
-// emailed OTP codes (not magic links) so the whole flow stays client-side with
-// no callback route. Requires Supabase Auth → Email provider enabled, with the
-// "Confirm signup"/"Magic Link"/"Change email" templates including `{{ .Token }}`.
-
-/**
- * Step 1 of saving an account: attach `email` to the current (anonymous) user.
- * Supabase emails a confirmation code; finish with `confirmEmailLink`.
- */
-export async function startEmailLink(email: string): Promise<void> {
+/** Every league the signed-in user belongs to, most-recently-joined first. */
+export async function loadLeagues(): Promise<League[]> {
   const supabase = getBrowserClient();
-  await ensureUserId();
-  const { error } = await supabase.auth.updateUser({ email: email.trim() });
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+  if (!session) return [];
+
+  const { data: memberships, error } = await supabase
+    .from("league_members")
+    .select("league_id, joined_at")
+    .eq("user_id", session.user.id)
+    .order("joined_at", { ascending: false });
   if (error) throw error;
+
+  const leagues: League[] = [];
+  for (const m of memberships ?? []) {
+    const lg = await fetchLeagueById(supabase, m.league_id as string);
+    if (lg) leagues.push(lg);
+  }
+  return leagues;
 }
 
 /**
- * Step 2 of saving an account: confirm the emailed code, finalizing the email on
- * the current account. The user id does not change, so nothing else moves.
- */
-export async function confirmEmailLink(email: string, code: string): Promise<void> {
-  const supabase = getBrowserClient();
-  const { error } = await supabase.auth.verifyOtp({
-    email: email.trim(),
-    token: code.trim(),
-    type: "email_change",
-  });
-  if (error) throw error;
-}
-
-/**
- * Step 1 of signing in on a new device: email a one-time code to `email`.
- * `shouldCreateUser: false` means an unknown email errors instead of silently
- * creating a fresh (empty) account — so the user knows to save it elsewhere first.
- */
-export async function startEmailSignIn(email: string): Promise<void> {
-  const supabase = getBrowserClient();
-  const { error } = await supabase.auth.signInWithOtp({
-    email: email.trim(),
-    options: { shouldCreateUser: false },
-  });
-  if (error) throw error;
-}
-
-/**
- * Step 2 of signing in on a new device: verify the emailed code. On success the
- * browser session becomes the existing account, so the caller can route into the
- * app and `loadSession` will resolve that account's league.
- */
-export async function confirmEmailSignIn(email: string, code: string): Promise<void> {
-  const supabase = getBrowserClient();
-  const { error } = await supabase.auth.verifyOtp({
-    email: email.trim(),
-    token: code.trim(),
-    type: "email",
-  });
-  if (error) throw error;
-}
-
-/**
- * Create a new league with the caller as its first member. The caller picks the
- * league name; the share code is generated client-side and the secure invite
- * token is generated server-side. On the rare invite-code collision we retry
- * with a fresh code.
+ * Create a new league with the caller as its first member. Requires an active
+ * session (sign up first). The share code is generated client-side and the secure
+ * invite token server-side; on the rare code collision we retry with a fresh code.
  */
 export async function createLeague(displayName: string, leagueName: string): Promise<League> {
   const supabase = getBrowserClient();
-  await ensureUserId();
 
   for (let attempt = 0; attempt < 5; attempt++) {
     const code = generateCode();
@@ -232,52 +177,15 @@ export async function createLeague(displayName: string, leagueName: string): Pro
 }
 
 /**
- * Join a league by invite code. Resolves to the joined League, or `null` if no
- * league exists for that code (the screen shows its "not found" state).
- * Idempotent — re-joining a league you're already in just returns it.
- */
-export async function joinLeagueByCode(code: string, displayName: string): Promise<League | null> {
-  const supabase = getBrowserClient();
-  await ensureUserId();
-
-  const { data, error } = await supabase.rpc("join_league", {
-    p_invite_code: code.toUpperCase(),
-    p_display_name: displayName,
-  });
-  if (error) {
-    if (error.code === NO_DATA_FOUND) return null;
-    throw error;
-  }
-
-  const row = data as LeagueRow;
-  const members = await fetchMembers(supabase, row.id);
-  return toLeague(row, members);
-}
-
-/**
- * Look up a league's name from a secure invite token, without joining. Used by
- * the invite-link screen to confirm "Join [League Name]" before the user
- * commits. Resolves to `null` when the token is unknown (invalid/expired link).
- */
-export async function peekLeagueName(token: string): Promise<string | null> {
-  const supabase = getBrowserClient();
-  await ensureUserId();
-  const { data, error } = await supabase.rpc("peek_league_by_token", { p_token: token });
-  if (error) throw error;
-  return (data as string | null) ?? null;
-}
-
-/**
- * Join a league via its secure invite token. Resolves to the joined League, or
- * `null` if the token is unknown. Idempotent — re-joining a league you're
- * already in just returns it.
+ * Join a league via its secure invite token. Requires an active session. Resolves
+ * to the joined League, or `null` if the token is unknown. Idempotent — re-joining
+ * a league you're already in just returns it.
  */
 export async function joinLeagueByToken(
   token: string,
   displayName: string,
 ): Promise<League | null> {
   const supabase = getBrowserClient();
-  await ensureUserId();
 
   const { data, error } = await supabase.rpc("join_league_by_token", {
     p_token: token,

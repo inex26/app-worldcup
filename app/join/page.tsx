@@ -5,47 +5,59 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Input } from "@/components/Input";
 import { Button } from "@/components/Button";
-import { isValidCode } from "@/lib/league";
-import { joinLeagueByCode } from "@/lib/data";
+import {
+  CredentialFields,
+  EMPTY_CREDENTIALS,
+  credentialsValid,
+  type Credentials,
+} from "@/components/CredentialFields";
+import { extractToken } from "@/lib/league";
+import { joinLeagueByToken, signUp } from "@/lib/data";
 
-/** Screen 3 — Join League. empty → loading → error | success(redirect). */
+/** Join a league: paste the invite link + set up your account → predictions. */
 export default function JoinPage() {
   const router = useRouter();
-  const [code, setCode] = useState("");
-  const [name, setName] = useState("");
+  const [link, setLink] = useState("");
+  const [creds, setCreds] = useState<Credentials>(EMPTY_CREDENTIALS);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
-  const valid = isValidCode(code) && name.trim().length > 0;
+  const token = extractToken(link);
+  const valid = token !== "" && credentialsValid(creds);
 
   async function handleJoin() {
     if (!valid || loading) return;
     setError(null);
     setLoading(true);
-
     try {
-      const league = await joinLeagueByCode(code, name.trim());
+      await signUp(creds.email, creds.password, creds.username);
+      const league = await joinLeagueByToken(token, creds.username.trim());
       if (!league) {
         setLoading(false);
-        setError("League not found. Check your code.");
+        setError("That invite link is invalid or has expired. Ask your friend for a fresh one.");
         return;
       }
       router.push("/predictions");
     } catch (err) {
       console.error("Join league failed:", err);
+      const raw = err instanceof Error ? err.message.toLowerCase() : "";
       setLoading(false);
-      setError("Something went wrong. Please try again.");
+      setError(
+        raw.includes("registered") || raw.includes("already")
+          ? "That email already has an account — sign in instead."
+          : "Something went wrong. Please try again.",
+      );
     }
   }
 
   return (
-    <main className="center-page">
+    <main className="center-page center-page--modal">
       <div className="card stack" style={{ width: "min(480px, 100%)" }}>
         <Link href="/" className="muted" style={{ fontSize: "0.9rem" }}>
           ← Back
         </Link>
         <h1>Join a league</h1>
-        <p className="muted">Enter the 6-character code a friend shared with you.</p>
+        <p className="muted">Paste the invite link a friend shared, then set up your account.</p>
 
         <form
           className="stack"
@@ -55,34 +67,26 @@ export default function JoinPage() {
           }}
         >
           <Input
-            label="League code"
-            className="input-uppercase"
-            placeholder="ABC123"
-            autoCapitalize="characters"
+            label="Invite link"
+            placeholder="https://…/join/…"
             autoComplete="off"
             spellCheck={false}
-            maxLength={6}
-            value={code}
+            value={link}
             disabled={loading}
             error={error ?? undefined}
             onChange={(e) => {
-              setCode(e.target.value.toUpperCase());
+              setLink(e.target.value);
               if (error) setError(null);
             }}
           />
-          <Input
-            label="Display name"
-            placeholder="e.g. Alex"
-            autoComplete="nickname"
-            maxLength={24}
-            value={name}
-            disabled={loading}
-            onChange={(e) => setName(e.target.value)}
-          />
+          <CredentialFields value={creds} onChange={setCreds} disabled={loading} />
           <Button type="submit" block disabled={!valid} loading={loading}>
             {loading ? "Joining…" : "Join league"}
           </Button>
         </form>
+        <p className="muted" style={{ fontSize: "0.9rem", textAlign: "center" }}>
+          Already have an account? <Link href="/signin">Sign in</Link>
+        </p>
       </div>
     </main>
   );

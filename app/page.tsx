@@ -26,7 +26,7 @@ import {
  */
 
 const DESCRIPTION =
-  "Play the free World Cup fantasy league and prediction game. Create a private league, invite friends, predict every group-stage score, and top the leaderboard — no sign-up needed to start.";
+  "Play the free World Cup fantasy league and prediction game. Create a private league, invite friends with a link, predict every group-stage score, and climb the leaderboard.";
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
@@ -99,7 +99,7 @@ export default function HomePage() {
           <TrophyIcon width={22} height={22} style={{ color: "var(--gold)" }} />
           <span>{APP_NAME}</span>
         </Link>
-        <Link className="btn btn-ghost btn-sm" href="/account">
+        <Link className="btn btn-ghost btn-sm" href="/signin">
           Sign in
         </Link>
       </header>

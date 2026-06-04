@@ -1,9 +1,10 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import type { League } from "@/lib/types";
-import { Toast, copyText, useToast } from "./Toast";
-import { CopyIcon, DevicesIcon, PlusIcon } from "./icons";
+import { signOut } from "@/lib/data";
+import { PlusIcon, ShareIcon, TrophyIcon } from "./icons";
 
 type Tab = "predictions" | "leaderboard";
 
@@ -14,15 +15,16 @@ interface AppShellProps {
 }
 
 /**
- * Post-join navigation shell: sticky top bar (league name + member count + copyable
- * code chip) and a bottom tab bar (Predictions | Leaderboard).
+ * Post-auth navigation shell: a sticky top bar (league name + member count) with
+ * the three fleet CTAs (My leagues / Create / Join) + sign out, and a bottom tab
+ * bar (Predictions | Leaderboard).
  */
 export function AppShell({ league, active, children }: AppShellProps) {
-  const { message, show } = useToast();
+  const router = useRouter();
 
-  async function copyCode() {
-    const ok = await copyText(league.code);
-    show(ok ? "Code copied!" : "Couldn't copy");
+  async function handleSignOut() {
+    await signOut();
+    router.replace("/");
   }
 
   return (
@@ -35,27 +37,20 @@ export function AppShell({ league, active, children }: AppShellProps) {
           </small>
         </span>
         <div className="appbar-actions">
-          <Link
-            className="btn btn-outlined btn-sm"
-            href="/account"
-            aria-label="Save account to use on other devices"
-            title="Use on other devices"
-          >
-            <DevicesIcon width={16} height={16} />
-            <span className="appbar-create-label">Sync</span>
+          <Link className="btn btn-outlined btn-sm" href="/leagues" aria-label="My leagues">
+            <TrophyIcon width={16} height={16} />
+            <span className="appbar-label">Leagues</span>
           </Link>
-          <Link className="btn btn-outlined btn-sm" href="/create" aria-label="Create League">
+          <Link className="btn btn-outlined btn-sm" href="/create" aria-label="Create a league">
             <PlusIcon width={16} height={16} />
-            <span className="appbar-create-label">Create League</span>
+            <span className="appbar-label">Create</span>
           </Link>
-          <button
-            type="button"
-            className="code-chip"
-            onClick={copyCode}
-            aria-label={`Copy league code ${league.code}`}
-          >
-            {league.code}
-            <CopyIcon width={16} height={16} />
+          <Link className="btn btn-outlined btn-sm" href="/join" aria-label="Join a league">
+            <ShareIcon width={16} height={16} />
+            <span className="appbar-label">Join</span>
+          </Link>
+          <button type="button" className="btn btn-ghost btn-sm" onClick={handleSignOut}>
+            Sign out
           </button>
         </div>
       </header>
@@ -70,8 +65,6 @@ export function AppShell({ league, active, children }: AppShellProps) {
           Leaderboard
         </Link>
       </nav>
-
-      <Toast message={message} />
     </>
   );
 }

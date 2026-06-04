@@ -93,26 +93,25 @@ can be looked up by invite code without exposing every league via `SELECT`. The 
 flow adds `peek_league_by_token` (resolve a league's name from the token, to confirm before
 joining) and `join_league_by_token` (auto-join via the secure link).
 
-## Cross-device sign-in
-By default every visitor is **anonymous**, and that identity lives in the current
-browser's cookie — so a different browser or device starts fresh with no leagues.
-To carry a league across devices, a user **saves their account** by attaching an email:
+## Accounts & sign-in
+Auth is **email + password** (Supabase Auth). You pick a **username** (your display name on
+leaderboards) plus an email + password when you create or join your first league. The session is
+stored in **cookies** (`@supabase/ssr` + `middleware.ts`) and auto-refreshed, so on the **same
+device you stay signed in** until you sign out. To use the same account on another device, choose
+**Sign in** (`/signin`) and enter your email + password — your leagues and predictions follow you,
+enforced by Row Level Security on `auth.uid()`. Implementation: `lib/data.ts`
+(`signUp` / `signIn` / `signOut`, `loadSession`), `lib/auth.ts` (validation), `app/signin/page.tsx`.
 
-1. **Save (device A):** in a league, tap **Sync** in the top bar (`/account`), enter an
-   email, and confirm the emailed one-time code. This attaches the email to the *same*
-   anonymous user — no new account, nothing moves.
-2. **Sign in (device B):** open the app, tap **Sign in** (`/account`), enter that email,
-   and confirm the code. The session becomes the existing account, so the league,
-   members, and predictions all appear — enforced by the existing Row Level Security.
-
-Email is **optional**: you can still create, join, and predict with zero sign-up. It only
-exists to recover the same identity elsewhere. Implementation lives in `lib/data.ts`
-(`startEmailLink` / `confirmEmailLink` / `startEmailSignIn` / `confirmEmailSignIn`),
-`lib/auth.ts` (validation), and `app/account/page.tsx` (the adaptive screen).
+### Supabase dashboard setup (one-time)
+1. **Authentication → Providers → Email: ON**, and **"Confirm email": OFF** (sign-up returns an
+   active session immediately — no inbox round-trip).
+2. **Authentication → "Allow anonymous sign-ins": OFF.**
+3. *(Optional)* set a minimum password length (8) and enable leaked-password protection.
+4. Run `supabase/schema.sql` in the SQL editor (idempotent). **No SMTP needed.**
 
 ### Known limitation
-A one-time code is required on each new device (there is no "remember this device"
-beyond the browser cookie), and an account maps to a single email.
+No self-serve password reset yet (kept intentionally simple). Forgotten passwords need a manual
+reset in the Supabase dashboard until a recovery flow is added.
 
 ## Deploy (Vercel)
 Connect this repo to Vercel — it auto-detects Next.js. Set `NEXT_PUBLIC_SUPABASE_URL` and

@@ -21,7 +21,7 @@ export const HERO_H1 = "The Free World Cup Fantasy League & Prediction Game";
 
 /** Generic sub-headline used when GEO detection is unavailable or unknown. */
 export const HERO_SUB_GENERIC =
-  "Predict every group-stage score, invite your friends, and climb your own private leaderboard — no sign-up to start, no cost.";
+  "Predict every group-stage score, invite your friends, and climb your own private leaderboard — free, in minutes.";
 
 /** ── Real, honest tournament facts for the social-proof / stats strip ────────
  * These are derived from the seeded tournament data, not fabricated engagement
@@ -46,11 +46,11 @@ export interface Step {
 export const STEPS: Step[] = [
   {
     title: "Create your league",
-    body: "Spin up a private league in seconds and get a shareable invite link — no account or download required.",
+    body: "Create a free account, spin up a private league in seconds, and get a shareable invite link — no download required.",
   },
   {
     title: "Invite your friends",
-    body: "Send the link to friends, family, or coworkers. Anyone who opens it joins your league automatically.",
+    body: "Send the link to friends, family, or coworkers. Anyone who opens it can join with a quick sign-up.",
   },
   {
     title: "Predict & win",
@@ -71,7 +71,7 @@ export const FAQS: Faq[] = [
   },
   {
     q: "Is it free to play?",
-    a: "Yes. Creating a league, inviting friends, and making predictions are completely free — no subscription or in-app purchase, and no sign-up needed to start playing.",
+    a: "Yes. Creating a league, inviting friends, and making predictions are completely free — no subscription or in-app purchase. You just create a free account so your leagues and predictions are saved.",
   },
   {
     q: "How does scoring work?",
@@ -79,11 +79,11 @@ export const FAQS: Faq[] = [
   },
   {
     q: "How do I invite friends to my league?",
-    a: "When you create a league you get a unique invite link and a 6-character code. Share either one — anyone who opens the link or enters the code joins your league instantly.",
+    a: "When you create a league you get a unique invite link. Share it — anyone who opens it can set up a free account and join your league instantly.",
   },
   {
     q: "Do I need to create an account?",
-    a: "No account is needed to start. You can create or join a league and start predicting right away — no registration, email, or app to install. If you'd like to play across devices, you can optionally save your account with an email and sign in elsewhere using a one-time code.",
+    a: "Yes — a free account with a username, email, and password. It takes seconds when you create or join your first league, keeps your predictions saved, and lets you sign in on any device. No app to install.",
   },
   {
     q: "When do predictions lock?",
@@ -99,7 +99,7 @@ export const FAQS: Faq[] = [
   },
   {
     q: "Can I use the same league on more than one device?",
-    a: "Yes. Optionally save your account by adding an email — tap Sync inside your league — then choose Sign in on any other phone or computer and enter that email. You'll get a one-time code by email, and your league and predictions follow you. Email is optional and only used to recover your account on a new device.",
+    a: "Yes. Your account works everywhere — choose Sign in on any other phone or computer and enter your email and password, and your leagues and predictions follow you.",
   },
 ];
 
@@ -134,5 +134,5 @@ const COUNTRY_TO_TEAM: Record<string, string> = {
 export function heroSubheadline(countryCode: string | null | undefined): string {
   const team = countryCode ? COUNTRY_TO_TEAM[countryCode.toUpperCase()] : undefined;
   if (!team) return HERO_SUB_GENERIC;
-  return `Think ${team} can go all the way? Predict every group-stage score, invite your friends, and climb your own private leaderboard — free, no sign-up to start.`;
+  return `Think ${team} can go all the way? Predict every group-stage score, invite your friends, and climb your own private leaderboard — free, in minutes.`;
 }

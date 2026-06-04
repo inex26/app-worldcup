@@ -56,10 +56,7 @@ export interface CurrentUser {
   id: string;
   displayName: string;
   leagueCode: string;
-  /**
-   * Email attached to the account, or null for an anonymous session. When set,
-   * the user can sign in with it on another device to reach the same league.
-   */
+  /** The account's login email (used to sign in on any device). */
   email: string | null;
 }
 
