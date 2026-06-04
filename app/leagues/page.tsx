@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { LoadError } from "@/components/LoadError";
 import { Toast, copyText, useToast } from "@/components/Toast";
 import { useSession } from "@/components/useSession";
 import { loadLeagues } from "@/lib/data";
@@ -12,14 +13,14 @@ import type { League } from "@/lib/types";
 /** My leagues — a read-only list with per-league invite copy + create/join CTAs. */
 export default function LeaguesPage() {
   const router = useRouter();
-  const { loading, user } = useSession();
+  const { loading, user, error, errorMessage } = useSession();
   const { message, show } = useToast();
   const [leagues, setLeagues] = useState<League[] | null>(null);
 
-  // Auth guard: signed-out → landing.
+  // Auth guard: signed-out → landing (but surface load errors instead of bouncing).
   useEffect(() => {
-    if (!loading && !user) router.replace("/");
-  }, [loading, user, router]);
+    if (!loading && !error && !user) router.replace("/");
+  }, [loading, error, user, router]);
 
   useEffect(() => {
     if (!user) return;
@@ -40,6 +41,8 @@ export default function LeaguesPage() {
     const ok = await copyText(inviteUrl(origin, league.inviteToken));
     show(ok ? "Invite link copied!" : "Couldn't copy");
   }
+
+  if (error) return <LoadError message={errorMessage} />;
 
   return (
     <main className="center-page center-page--modal">

@@ -16,6 +16,20 @@ import type { CurrentUser, League, Member, Prediction } from "./types";
 const UNIQUE_VIOLATION = "23505";
 const NO_DATA_FOUND = "P0002"; // raised by join_league_by_token() for an unknown token
 
+/** Codes that mean the live DB is behind the app (missing column/table = schema drift). */
+const SCHEMA_DRIFT_CODES = new Set(["42703", "42P01"]); // undefined_column, undefined_table
+
+/** True if `err` is a schema-drift error — i.e. run `supabase/schema.sql`. */
+export function isSchemaDriftError(err: unknown): boolean {
+  const code = (err as { code?: string } | null)?.code;
+  return code !== undefined && SCHEMA_DRIFT_CODES.has(code);
+}
+
+/** Actionable message shown when the app detects schema drift. */
+export const SCHEMA_DRIFT_HINT =
+  "The app is talking to an out-of-date database. Run supabase/schema.sql in the Supabase SQL " +
+  "editor to apply the latest schema, then reload.";
+
 // ── Email + password auth ────────────────────────────────────────────────────
 // Requires Supabase Auth → Email provider ON with "Confirm email" OFF, so sign-up
 // returns an active session immediately (no inbox round-trip). The session is

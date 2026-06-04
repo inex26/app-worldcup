@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { AppShell } from "@/components/AppShell";
+import { LoadError } from "@/components/LoadError";
 import { MatchRow, type RowValue } from "@/components/MatchRow";
 import { Button } from "@/components/Button";
 import { ChevronIcon } from "@/components/icons";
@@ -24,7 +25,7 @@ function parseGoals(v: string): number | null {
 /** Screen 4 — Predictions. Collapsible matchday sections with per-row + bulk save. */
 export default function PredictionsPage() {
   const router = useRouter();
-  const { loading, user, league } = useSession();
+  const { loading, user, league, error, errorMessage } = useSession();
   const { message, show } = useToast();
 
   const [now] = useState(() => Date.now());
@@ -34,10 +35,11 @@ export default function PredictionsPage() {
     Object.fromEntries(ROUNDS.map((r) => [r, true])),
   );
 
-  // Redirect to home if there is no active session.
+  // Redirect to home only when genuinely signed-out — NOT on a load error (e.g. schema
+  // drift), which we surface visibly via <LoadError> instead of a silent bounce.
   useEffect(() => {
-    if (!loading && (!user || !league)) router.replace("/");
-  }, [loading, user, league, router]);
+    if (!loading && !error && (!user || !league)) router.replace("/");
+  }, [loading, error, user, league, router]);
 
   // Hydrate inputs from saved predictions once the session is ready.
   useEffect(() => {
@@ -129,6 +131,7 @@ export default function PredictionsPage() {
     if (count > 0) show(`Saved ${count} prediction${count === 1 ? "" : "s"}`);
   }
 
+  if (error) return <LoadError message={errorMessage} />;
   if (loading || !user || !league) {
     return (
       <main className="center-page">

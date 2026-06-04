@@ -1,27 +1,40 @@
 :root {
-  /* Palette (per design spec) */
-  --primary: #1a1a2e;
+  /* Palette — football-night, brightened a touch for energy */
+  --primary: #16162c;
   --accent: #e63946;
   --accent-strong: #c92f3c;
   --gold: #f4a261;
-  --surface: #16213e;
-  --card: #0f3460;
-  --card-hover: #14427a;
-  --text: #eaeaea;
-  --muted: #a0a0b0;
+  --surface: #1a2540;
+  --card: #123056;
+  --card-hover: #16407a;
+  --text: #f1f1f6;
+  --muted: #a6a6bd;
   --green: #2a9d8f;
   --blue: #4a90d9;
-  --border: rgba(255, 255, 255, 0.08);
+  --border: rgba(255, 255, 255, 0.1);
 
-  /* Radii + spacing (4px base grid) */
-  --radius-card: 8px;
-  --radius-input: 4px;
+  /* Radii — rounder = friendlier/modern */
+  --radius-card: 18px;
+  --radius-input: 12px;
+  --radius-pill: 999px;
+
+  /* Spacing (4px base grid) */
   --sp-1: 4px;
   --sp-2: 8px;
   --sp-3: 12px;
   --sp-4: 16px;
   --sp-5: 24px;
   --sp-6: 32px;
+
+  /* Elevation, motion + gradients (the playful/modern layer) */
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.35);
+  --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.38);
+  --shadow-lg: 0 18px 44px rgba(0, 0, 0, 0.48);
+  --ring: 0 0 0 4px rgba(230, 57, 70, 0.3);
+  --grad-accent: linear-gradient(135deg, #ff4d5e 0%, var(--accent) 55%, var(--accent-strong) 100%);
+  --grad-glow: radial-gradient(900px 480px at 50% -120px, rgba(230, 57, 70, 0.2), transparent 70%);
+  --dur: 0.18s;
+  --ease: cubic-bezier(0.2, 0.7, 0.3, 1);
 }
 
 * {
@@ -35,7 +48,10 @@ body {
 }
 
 body {
-  background: var(--primary);
+  background-color: var(--primary);
+  background-image: var(--grad-glow);
+  background-repeat: no-repeat;
+  background-attachment: fixed;
   color: var(--text);
   font-family:
     system-ui,
@@ -130,6 +146,7 @@ a {
   border: 1px solid var(--border);
   border-radius: var(--radius-card);
   padding: var(--sp-5);
+  box-shadow: var(--shadow-md);
 }
 
 /* ── Button ───────────────────────────────────────────────────── */
@@ -138,27 +155,38 @@ a {
   align-items: center;
   justify-content: center;
   gap: var(--sp-2);
-  min-height: 44px;
-  min-width: 44px;
-  padding: 0 var(--sp-4);
-  border-radius: var(--radius-input);
+  min-height: 46px;
+  min-width: 46px;
+  padding: 0 var(--sp-5);
+  border-radius: var(--radius-pill);
   border: 1px solid transparent;
   font-size: 1rem;
-  font-weight: 600;
+  font-weight: 700;
   cursor: pointer;
   text-decoration: none;
-  transition: background 0.15s ease, border-color 0.15s ease, opacity 0.15s ease;
+  transition:
+    transform var(--dur) var(--ease),
+    background var(--dur) var(--ease),
+    border-color var(--dur) var(--ease),
+    box-shadow var(--dur) var(--ease),
+    opacity var(--dur) var(--ease);
 }
 .btn:disabled {
   opacity: 0.5;
   cursor: not-allowed;
 }
+.btn:not(:disabled):active {
+  transform: translateY(1px) scale(0.99);
+}
 .btn-filled {
-  background: var(--accent);
+  background-image: var(--grad-accent);
+  background-color: var(--accent);
   color: #fff;
+  box-shadow: var(--shadow-sm);
 }
 .btn-filled:not(:disabled):hover {
-  background: var(--accent-strong);
+  box-shadow: var(--shadow-md);
+  transform: translateY(-1px);
 }
 .btn-outlined {
   background: transparent;
@@ -167,6 +195,7 @@ a {
 }
 .btn-outlined:not(:disabled):hover {
   background: rgba(230, 57, 70, 0.12);
+  transform: translateY(-1px);
 }
 .btn-ghost {
   background: transparent;
@@ -200,16 +229,22 @@ a {
   color: var(--muted);
 }
 .input {
-  min-height: 44px;
+  min-height: 48px;
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius-input);
   color: var(--text);
-  padding: 0 var(--sp-3);
+  padding: 0 var(--sp-4);
   font-size: 1rem;
+  transition: border-color var(--dur) var(--ease), box-shadow var(--dur) var(--ease);
 }
 .input::placeholder {
   color: var(--muted);
+}
+.input:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: var(--ring);
 }
 .input:disabled {
   opacity: 0.6;
@@ -351,9 +386,12 @@ a {
   align-items: center;
   justify-content: space-between;
   gap: var(--sp-3);
+  row-gap: var(--sp-2);
+  flex-wrap: wrap; /* on narrow phones the actions drop to a second row instead of overflowing */
   padding: var(--sp-3) var(--sp-4);
   background: var(--surface);
   border-bottom: 1px solid var(--border);
+  box-shadow: var(--shadow-sm);
 }
 .appbar .title {
   font-weight: 700;
@@ -368,10 +406,10 @@ a {
   gap: var(--sp-2);
   flex-shrink: 0;
 }
-/* On narrow screens, collapse the "Create League" button to its icon (the link
-   keeps an aria-label, so the accessible name is preserved). */
-@media (max-width: 400px) {
-  .appbar-create-label {
+/* On narrow screens, collapse the nav buttons to their icons (each link keeps an
+   aria-label, so the accessible name is preserved). */
+@media (max-width: 480px) {
+  .appbar-label {
     position: absolute;
     width: 1px;
     height: 1px;
@@ -413,6 +451,8 @@ a {
   display: flex;
   background: var(--surface);
   border-top: 1px solid var(--border);
+  box-shadow: 0 -2px 14px rgba(0, 0, 0, 0.28);
+  padding-bottom: env(safe-area-inset-bottom); /* clear the iOS home indicator */
 }
 .tabbar a {
   flex: 1;
@@ -421,12 +461,14 @@ a {
   min-height: 48px;
   color: var(--muted);
   text-decoration: none;
-  font-weight: 600;
+  font-weight: 700;
   border-top: 3px solid transparent;
+  transition: color var(--dur) var(--ease), background var(--dur) var(--ease);
 }
 .tabbar a[aria-current="page"] {
   color: var(--text);
   border-top-color: var(--accent);
+  background: rgba(230, 57, 70, 0.08);
 }
 
 /* ── Section header (collapsible) ─────────────────────────────── */
@@ -877,6 +919,30 @@ a {
     flex: 1 1 0;
     min-width: 0;
   }
+}
+
+/* ── My leagues list ──────────────────────────────────────────── */
+.league-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+}
+.league-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-3);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-input);
+  padding: var(--sp-3) var(--sp-4);
+  transition: border-color var(--dur) var(--ease), transform var(--dur) var(--ease);
+}
+.league-row:hover {
+  border-color: rgba(244, 162, 97, 0.5);
 }
 
 /* ── Reduced motion ───────────────────────────────────────────── */

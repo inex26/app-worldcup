@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { loadSession } from "@/lib/data";
+import { isSchemaDriftError, loadSession, SCHEMA_DRIFT_HINT } from "@/lib/data";
 import type { CurrentUser, League } from "@/lib/types";
 
 export interface Session {
@@ -9,8 +9,10 @@ export interface Session {
   loading: boolean;
   user: CurrentUser | null;
   league: League | null;
-  /** Set when sign-in or the session lookup fails. */
+  /** Set when the session lookup fails (e.g. schema drift) — distinct from "not signed in". */
   error: boolean;
+  /** A human-readable reason when `error` is true. */
+  errorMessage: string | null;
 }
 
 /**
@@ -24,6 +26,7 @@ export function useSession(bump = 0): Session {
     user: null,
     league: null,
     error: false,
+    errorMessage: null,
   });
 
   useEffect(() => {
@@ -31,11 +34,14 @@ export function useSession(bump = 0): Session {
     setSession((s) => ({ ...s, loading: true }));
     loadSession()
       .then(({ user, league }) => {
-        if (active) setSession({ loading: false, user, league, error: false });
+        if (active) setSession({ loading: false, user, league, error: false, errorMessage: null });
       })
       .catch((err) => {
         console.error("Session load failed:", err);
-        if (active) setSession({ loading: false, user: null, league: null, error: true });
+        const errorMessage = isSchemaDriftError(err)
+          ? SCHEMA_DRIFT_HINT
+          : "Couldn't load your session. Please reload and try again.";
+        if (active) setSession({ loading: false, user: null, league: null, error: true, errorMessage });
       });
     return () => {
       active = false;

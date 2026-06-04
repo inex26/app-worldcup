@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { AppShell } from "@/components/AppShell";
+import { LoadError } from "@/components/LoadError";
 import { TabBar } from "@/components/TabBar";
 import { LeaderboardRow } from "@/components/LeaderboardRow";
 import { SkeletonList } from "@/components/SkeletonRow";
@@ -21,7 +22,7 @@ type TabId = "standings" | "mypicks";
 /** Screen 5 — Leaderboard. Standings table + a read-only "My Picks" history tab. */
 export default function LeaderboardPage() {
   const router = useRouter();
-  const { loading, user, league } = useSession();
+  const { loading, user, league, error, errorMessage } = useSession();
   const { message, show } = useToast();
   const [now] = useState(() => Date.now());
   const [tab, setTab] = useState<TabId>("standings");
@@ -30,8 +31,8 @@ export default function LeaderboardPage() {
   const [standings, setStandings] = useState<Standing[]>([]);
 
   useEffect(() => {
-    if (!loading && (!user || !league)) router.replace("/");
-  }, [loading, user, league, router]);
+    if (!loading && !error && (!user || !league)) router.replace("/");
+  }, [loading, error, user, league, router]);
 
   // Confirm a just-completed join-via-link (?joined=1), then strip the param so
   // a refresh doesn't re-toast. Read from the URL directly to avoid a Suspense
@@ -69,6 +70,7 @@ export default function LeaderboardPage() {
     };
   }, [user, league, now]);
 
+  if (error) return <LoadError message={errorMessage} />;
   if (loading || !user || !league) {
     return (
       <main className="center-page">

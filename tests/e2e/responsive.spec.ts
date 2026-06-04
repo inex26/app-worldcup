@@ -59,7 +59,7 @@ async function expectCardCentered(page: Page, where: string) {
 
 // Routes that render without a backend session (forms / landing). Drive backend-gated states in
 // their own test (see the share modal below).
-const ROUTES = ["/", "/create", "/join"];
+const ROUTES = ["/", "/create", "/join", "/signin"];
 
 for (const path of ROUTES) {
   test(`fits the phone: ${path}`, async ({ page }) => {
