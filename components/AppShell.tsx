@@ -4,7 +4,9 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { League } from "@/lib/types";
 import { signOut } from "@/lib/data";
-import { PlusIcon, ShareIcon, TrophyIcon } from "./icons";
+import { inviteUrl } from "@/lib/league";
+import { Toast, copyText, useToast } from "./Toast";
+import { CopyIcon, PlusIcon, ShareIcon, TrophyIcon } from "./icons";
 
 type Tab = "predictions" | "leaderboard";
 
@@ -15,12 +17,18 @@ interface AppShellProps {
 }
 
 /**
- * Post-auth navigation shell: a sticky top bar (league name + member count) with
- * the three fleet CTAs (My leagues / Create / Join) + sign out, and a bottom tab
- * bar (Predictions | Leaderboard).
+ * Post-auth navigation shell: a sticky top bar (league name + member count) with the fleet CTAs
+ * (Invite / My leagues / Create / Join) + sign out, and a bottom tab bar (Predictions | Leaderboard).
  */
 export function AppShell({ league, active, children }: AppShellProps) {
   const router = useRouter();
+  const { message, show } = useToast();
+
+  async function handleInvite() {
+    const origin = typeof window !== "undefined" ? window.location.origin : "";
+    const ok = await copyText(inviteUrl(origin, league.inviteToken));
+    show(ok ? "Invite link copied!" : "Couldn't copy");
+  }
 
   async function handleSignOut() {
     await signOut();
@@ -37,6 +45,15 @@ export function AppShell({ league, active, children }: AppShellProps) {
           </small>
         </span>
         <div className="appbar-actions">
+          <button
+            type="button"
+            className="btn btn-outlined btn-sm"
+            onClick={handleInvite}
+            aria-label="Copy league invite link"
+          >
+            <CopyIcon width={16} height={16} />
+            <span className="appbar-label">Invite</span>
+          </button>
           <Link className="btn btn-outlined btn-sm" href="/leagues" aria-label="My leagues">
             <TrophyIcon width={16} height={16} />
             <span className="appbar-label">Leagues</span>
@@ -65,6 +82,8 @@ export function AppShell({ league, active, children }: AppShellProps) {
           Leaderboard
         </Link>
       </nav>
+
+      <Toast message={message} />
     </>
   );
 }
