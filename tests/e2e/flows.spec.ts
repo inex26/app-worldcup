@@ -76,7 +76,9 @@ async function expectNoHorizontalOverflow(page: Page, where: string) {
 // ── Signed-out guards: app routes bounce to the landing page ──────────────────
 for (const path of ["/predictions", "/leaderboard", "/leagues"]) {
   test(`signed-out ${path} redirects to landing`, async ({ page }) => {
-    await page.goto(path);
+    // `commit` returns as soon as the response lands; the client guard then redirects to "/",
+    // which would otherwise ABORT a default `load`-waiting goto.
+    await page.goto(path, { waitUntil: "commit" });
     await page.waitForURL((u) => new URL(u).pathname === "/");
     await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
   });
