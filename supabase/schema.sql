@@ -149,18 +149,40 @@ create policy "predictions_select_same_league"
   to authenticated
   using (public.is_league_member(league_id));
 
+-- Helper: true when the match is still open for predictions (kickoff in future + both teams known).
+-- SECURITY DEFINER so it can read the matches table without an explicit RLS policy on that table.
+create or replace function public.match_is_open(p_match_id text)
+returns boolean
+language sql
+security definer
+set search_path = public
+stable
+as $$
+  select exists (
+    select 1 from public.matches
+    where id = p_match_id
+      and kickoff is not null
+      and kickoff > now()
+      and home_name is not null
+      and away_name is not null
+  );
+$$;
+grant execute on function public.match_is_open(text) to authenticated;
+
 drop policy if exists "predictions_insert_self" on public.predictions;
 create policy "predictions_insert_self"
   on public.predictions for insert
   to authenticated
-  with check (user_id = auth.uid() and public.is_league_member(league_id));
+  -- Server-side kickoff lock: reject any prediction if the match has already kicked off
+  -- or teams are still TBD. Mirrors client-side isPredictable() as an integrity guarantee.
+  with check (user_id = auth.uid() and public.is_league_member(league_id) and public.match_is_open(match_id));
 
 drop policy if exists "predictions_update_self" on public.predictions;
 create policy "predictions_update_self"
   on public.predictions for update
   to authenticated
   using (user_id = auth.uid())
-  with check (user_id = auth.uid());
+  with check (user_id = auth.uid() and public.match_is_open(match_id));
 
 drop policy if exists "predictions_delete_self" on public.predictions;
 create policy "predictions_delete_self"
