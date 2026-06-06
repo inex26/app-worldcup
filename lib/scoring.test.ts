@@ -28,8 +28,9 @@ describe("computeStandings", () => {
   const matches: Match[] = [
     {
       id: "M1",
+      stage: "group",
       group: "A",
-      round: 1,
+      matchday: 1,
       home: { name: "H", flag: "" },
       away: { name: "A", flag: "" },
       kickoff: past,
@@ -37,8 +38,9 @@ describe("computeStandings", () => {
     },
     {
       id: "M2",
+      stage: "group",
       group: "A",
-      round: 1,
+      matchday: 1,
       home: { name: "H", flag: "" },
       away: { name: "A", flag: "" },
       kickoff: past,
@@ -47,8 +49,9 @@ describe("computeStandings", () => {
     {
       // future + unplayed: must not contribute to points
       id: "M3",
+      stage: "group",
       group: "A",
-      round: 2,
+      matchday: 2,
       home: { name: "H", flag: "" },
       away: { name: "A", flag: "" },
       kickoff: future,

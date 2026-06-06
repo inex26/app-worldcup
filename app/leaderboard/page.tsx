@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { AppShell } from "@/components/AppShell";
@@ -12,31 +12,45 @@ import { EmptyState } from "@/components/EmptyState";
 import { MatchRow } from "@/components/MatchRow";
 import { Toast, useToast } from "@/components/Toast";
 import { useSession } from "@/components/useSession";
-import { MATCHES, ROUNDS, isLocked } from "@/lib/matches";
+import { isLocked, matchSections } from "@/lib/matches";
 import { computeStandings, scorePrediction } from "@/lib/scoring";
-import { fetchLeaderboard } from "@/lib/data";
-import type { Prediction, Standing } from "@/lib/types";
+import { fetchLeaderboard, fetchMatches } from "@/lib/data";
+import type { Match, Member, Prediction } from "@/lib/types";
 
 type TabId = "standings" | "mypicks";
 
-/** Screen 5 — Leaderboard. Standings table + a read-only "My Picks" history tab. */
+/** Leaderboard — standings table + a read-only "My Picks" history tab. */
 export default function LeaderboardPage() {
   const router = useRouter();
   const { loading, user, league, error, errorMessage } = useSession();
   const { message, show } = useToast();
   const [now] = useState(() => Date.now());
   const [tab, setTab] = useState<TabId>("standings");
-  const [skeleton, setSkeleton] = useState(true);
-  const [myPicks, setMyPicks] = useState<Record<string, Prediction>>({});
-  const [standings, setStandings] = useState<Standing[]>([]);
+  const [matches, setMatches] = useState<Match[] | null>(null);
+  const [lb, setLb] = useState<{
+    members: Member[];
+    predictionsByMember: Record<string, Prediction[]>;
+  } | null>(null);
 
   useEffect(() => {
     if (!loading && !error && (!user || !league)) router.replace("/");
   }, [loading, error, user, league, router]);
 
-  // Confirm a just-completed join-via-link (?joined=1), then strip the param so
-  // a refresh doesn't re-toast. Read from the URL directly to avoid a Suspense
-  // boundary for useSearchParams.
+  useEffect(() => {
+    if (!user) return;
+    let active = true;
+    fetchMatches()
+      .then((ms) => active && setMatches(ms))
+      .catch((err) => {
+        console.error("Load matches failed:", err);
+        if (active) setMatches([]);
+      });
+    return () => {
+      active = false;
+    };
+  }, [user]);
+
+  // Confirm a just-completed join-via-link (?joined=1), then strip the param.
   useEffect(() => {
     if (typeof window === "undefined" || !league) return;
     const params = new URLSearchParams(window.location.search);
@@ -46,29 +60,31 @@ export default function LeaderboardPage() {
     }
   }, [league, show]);
 
-  // Load every member's predictions for this league, then compute standings and
-  // the caller's own picks from the same payload.
   useEffect(() => {
     if (!user || !league) return;
     let active = true;
-    setSkeleton(true);
     fetchLeaderboard(league.id)
-      .then(({ members, predictionsByMember }) => {
-        if (!active) return;
-        setStandings(computeStandings(members, predictionsByMember, MATCHES, now));
-        const mine: Record<string, Prediction> = {};
-        for (const p of predictionsByMember[user.id] ?? []) mine[p.matchId] = p;
-        setMyPicks(mine);
-        setSkeleton(false);
-      })
+      .then((data) => active && setLb(data))
       .catch((err) => {
         console.error("Load leaderboard failed:", err);
-        if (active) setSkeleton(false);
+        if (active) setLb({ members: [], predictionsByMember: {} });
       });
     return () => {
       active = false;
     };
-  }, [user, league, now]);
+  }, [user, league]);
+
+  const standings = useMemo(
+    () => (lb && matches ? computeStandings(lb.members, lb.predictionsByMember, matches, now) : []),
+    [lb, matches, now],
+  );
+  const myPicks = useMemo(() => {
+    const mine: Record<string, Prediction> = {};
+    if (lb && user) for (const p of lb.predictionsByMember[user.id] ?? []) mine[p.matchId] = p;
+    return mine;
+  }, [lb, user]);
+
+  const ready = lb !== null && matches !== null;
 
   if (error) return <LoadError message={errorMessage} />;
   if (loading || !user || !league) {
@@ -97,7 +113,7 @@ export default function LeaderboardPage() {
 
       {tab === "standings" && (
         <div id="lb-panel-standings" role="tabpanel" aria-labelledby="lb-tab-standings">
-          {skeleton ? (
+          {!ready ? (
             <SkeletonList count={5} />
           ) : (
             <table className="lb-table">
@@ -136,36 +152,38 @@ export default function LeaderboardPage() {
               </Link>
             </EmptyState>
           ) : (
-            ROUNDS.map((round) => (
-              <section key={round} aria-label={`Matchday ${round}`}>
-                <h2 style={{ margin: "var(--sp-4) 0 var(--sp-2)" }}>Matchday {round}</h2>
-                {MATCHES.filter((m) => m.round === round).map((match) => {
-                  const pick = myPicks[match.id];
-                  const locked = isLocked(match, now);
-                  const points =
-                    locked && match.result && pick
-                      ? scorePrediction({ home: pick.home, away: pick.away }, match.result)
-                      : undefined;
-                  return (
-                    <MatchRow
-                      key={match.id}
-                      match={match}
-                      readOnly
-                      locked={locked}
-                      saved={pick !== undefined}
-                      dirty={false}
-                      value={
-                        pick
-                          ? { home: String(pick.home), away: String(pick.away) }
-                          : { home: "", away: "" }
-                      }
-                      result={locked ? match.result : undefined}
-                      points={points}
-                    />
-                  );
-                })}
-              </section>
-            ))
+            matchSections(matches ?? [])
+              .map((section) => ({
+                ...section,
+                matches: section.matches.filter((m) => myPicks[m.id] !== undefined),
+              }))
+              .filter((section) => section.matches.length > 0)
+              .map((section) => (
+                <section key={section.key} aria-label={section.label}>
+                  <h2 style={{ margin: "var(--sp-4) 0 var(--sp-2)" }}>{section.label}</h2>
+                  {section.matches.map((match) => {
+                    const pick = myPicks[match.id];
+                    const locked = isLocked(match, now);
+                    const points =
+                      locked && match.result && pick
+                        ? scorePrediction({ home: pick.home, away: pick.away }, match.result)
+                        : undefined;
+                    return (
+                      <MatchRow
+                        key={match.id}
+                        match={match}
+                        readOnly
+                        locked={locked}
+                        saved={pick !== undefined}
+                        dirty={false}
+                        value={{ home: String(pick.home), away: String(pick.away) }}
+                        result={locked ? match.result : undefined}
+                        points={points}
+                      />
+                    );
+                  })}
+                </section>
+              ))
           )}
         </div>
       )}

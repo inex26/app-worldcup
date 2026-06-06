@@ -47,23 +47,30 @@ create table if not exists public.league_members (
 
 create index if not exists league_members_user_id_idx on public.league_members (user_id);
 
--- Matches are global tournament reference data (the same 48 group-stage games
--- for everyone), seeded below. The app renders them from lib/matches.ts; this
--- table exists so predictions can key off a real match id. `id` is the static
--- match code ("A1".."H6"), so it is text rather than a uuid.
-create table if not exists public.matches (
-  id         text primary key,
-  "group"    text not null,
-  round      int  not null,
-  home_name  text not null,
-  home_flag  text not null,
-  away_name  text not null,
-  away_flag  text not null,
-  kickoff    timestamptz not null,
-  home_score int,
-  away_score int
+-- Matches = global tournament reference data, read by everyone and written only by
+-- the sync job (football-data.org -> service role) or the generated seed
+-- (supabase/seed-matches.sql). `id` is the football-data.org match id (text).
+-- Knockout matches start with NULL teams (TBD) and are filled as rounds resolve.
+-- NOTE: re-modelled for the real 2026 format (48 teams / 12 groups / knockouts);
+-- dropped+recreated because columns changed. Pre-launch, so no real data is lost.
+drop table if exists public.matches cascade;
+create table public.matches (
+  id         text primary key,                  -- football-data.org match id
+  stage      text not null,                     -- group | r32 | r16 | qf | sf | third | final
+  "group"    text,                              -- A..L (null for knockouts)
+  matchday   int,                               -- 1..3 (group stage only)
+  kickoff    timestamptz,                        -- null if not yet scheduled
+  home_name  text, home_flag text, home_tla text,
+  away_name  text, away_flag text, away_tla text,
+  ft_home    int,  ft_away int,                  -- full-time score (null until played)
+  status     text not null default 'scheduled', -- scheduled | live | finished
+  duration   text,                              -- REGULAR | EXTRA_TIME | PENALTY_SHOOTOUT
+  winner     text,                              -- HOME | AWAY | DRAW (null until decided)
+  updated_at timestamptz not null default now()
 );
 
+-- Recreated so the match_id FK points at the rebuilt matches table (pre-launch wipe of predictions).
+drop table if exists public.predictions cascade;
 create table if not exists public.predictions (
   id         uuid primary key default gen_random_uuid(),
   user_id    uuid not null default auth.uid() references auth.users (id) on delete cascade,
@@ -272,57 +279,7 @@ grant execute on function public.peek_league_by_token(text) to authenticated;
 grant execute on function public.join_league_by_token(text, text) to authenticated;
 grant execute on function public.is_league_member(uuid) to authenticated;
 
--- ── Seed: 48 group-stage matches (mirrors lib/matches.ts) ────────────────────
--- Matchday 1 is in the past with final scores; matchdays 2 & 3 are upcoming.
-insert into public.matches
-  (id, "group", round, home_name, home_flag, away_name, away_flag, kickoff, home_score, away_score)
-values
-  ('A1', 'A', 1, 'Brazil', '🇧🇷', 'Croatia', '🇭🇷', '2026-06-01T13:00:00.000Z', 0, 1),
-  ('A2', 'A', 1, 'Mexico', '🇲🇽', 'Cameroon', '🇨🇲', '2026-06-01T14:00:00.000Z', 1, 0),
-  ('A3', 'A', 2, 'Brazil', '🇧🇷', 'Mexico', '🇲🇽', '2026-06-05T15:00:00.000Z', null, null),
-  ('A4', 'A', 2, 'Cameroon', '🇨🇲', 'Croatia', '🇭🇷', '2026-06-05T16:00:00.000Z', null, null),
-  ('A5', 'A', 3, 'Cameroon', '🇨🇲', 'Brazil', '🇧🇷', '2026-06-08T17:00:00.000Z', null, null),
-  ('A6', 'A', 3, 'Croatia', '🇭🇷', 'Mexico', '🇲🇽', '2026-06-08T18:00:00.000Z', null, null),
-  ('B1', 'B', 1, 'Argentina', '🇦🇷', 'Poland', '🇵🇱', '2026-06-01T14:00:00.000Z', 2, 3),
-  ('B2', 'B', 1, 'Japan', '🇯🇵', 'Tunisia', '🇹🇳', '2026-06-01T15:00:00.000Z', 3, 2),
-  ('B3', 'B', 2, 'Argentina', '🇦🇷', 'Japan', '🇯🇵', '2026-06-05T16:00:00.000Z', null, null),
-  ('B4', 'B', 2, 'Tunisia', '🇹🇳', 'Poland', '🇵🇱', '2026-06-05T17:00:00.000Z', null, null),
-  ('B5', 'B', 3, 'Tunisia', '🇹🇳', 'Argentina', '🇦🇷', '2026-06-08T18:00:00.000Z', null, null),
-  ('B6', 'B', 3, 'Poland', '🇵🇱', 'Japan', '🇯🇵', '2026-06-08T13:00:00.000Z', null, null),
-  ('C1', 'C', 1, 'France', '🇫🇷', 'Denmark', '🇩🇰', '2026-06-01T15:00:00.000Z', 0, 1),
-  ('C2', 'C', 1, 'Australia', '🇦🇺', 'Peru', '🇵🇪', '2026-06-01T16:00:00.000Z', 1, 0),
-  ('C3', 'C', 2, 'France', '🇫🇷', 'Australia', '🇦🇺', '2026-06-05T17:00:00.000Z', null, null),
-  ('C4', 'C', 2, 'Peru', '🇵🇪', 'Denmark', '🇩🇰', '2026-06-05T18:00:00.000Z', null, null),
-  ('C5', 'C', 3, 'Peru', '🇵🇪', 'France', '🇫🇷', '2026-06-08T13:00:00.000Z', null, null),
-  ('C6', 'C', 3, 'Denmark', '🇩🇰', 'Australia', '🇦🇺', '2026-06-08T14:00:00.000Z', null, null),
-  ('D1', 'D', 1, 'Spain', '🇪🇸', 'Germany', '🇩🇪', '2026-06-01T16:00:00.000Z', 2, 3),
-  ('D2', 'D', 1, 'Morocco', '🇲🇦', 'Canada', '🇨🇦', '2026-06-01T17:00:00.000Z', 3, 2),
-  ('D3', 'D', 2, 'Spain', '🇪🇸', 'Morocco', '🇲🇦', '2026-06-05T18:00:00.000Z', null, null),
-  ('D4', 'D', 2, 'Canada', '🇨🇦', 'Germany', '🇩🇪', '2026-06-05T13:00:00.000Z', null, null),
-  ('D5', 'D', 3, 'Canada', '🇨🇦', 'Spain', '🇪🇸', '2026-06-08T14:00:00.000Z', null, null),
-  ('D6', 'D', 3, 'Germany', '🇩🇪', 'Morocco', '🇲🇦', '2026-06-08T15:00:00.000Z', null, null),
-  ('E1', 'E', 1, 'Portugal', '🇵🇹', 'Uruguay', '🇺🇾', '2026-06-01T17:00:00.000Z', 0, 1),
-  ('E2', 'E', 1, 'Ghana', '🇬🇭', 'South Korea', '🇰🇷', '2026-06-01T18:00:00.000Z', 1, 0),
-  ('E3', 'E', 2, 'Portugal', '🇵🇹', 'Ghana', '🇬🇭', '2026-06-05T13:00:00.000Z', null, null),
-  ('E4', 'E', 2, 'South Korea', '🇰🇷', 'Uruguay', '🇺🇾', '2026-06-05T14:00:00.000Z', null, null),
-  ('E5', 'E', 3, 'South Korea', '🇰🇷', 'Portugal', '🇵🇹', '2026-06-08T15:00:00.000Z', null, null),
-  ('E6', 'E', 3, 'Uruguay', '🇺🇾', 'Ghana', '🇬🇭', '2026-06-08T16:00:00.000Z', null, null),
-  ('F1', 'F', 1, 'Belgium', '🇧🇪', 'Switzerland', '🇨🇭', '2026-06-01T18:00:00.000Z', 2, 3),
-  ('F2', 'F', 1, 'Serbia', '🇷🇸', 'USA', '🇺🇸', '2026-06-01T13:00:00.000Z', 3, 2),
-  ('F3', 'F', 2, 'Belgium', '🇧🇪', 'Serbia', '🇷🇸', '2026-06-05T14:00:00.000Z', null, null),
-  ('F4', 'F', 2, 'USA', '🇺🇸', 'Switzerland', '🇨🇭', '2026-06-05T15:00:00.000Z', null, null),
-  ('F5', 'F', 3, 'USA', '🇺🇸', 'Belgium', '🇧🇪', '2026-06-08T16:00:00.000Z', null, null),
-  ('F6', 'F', 3, 'Switzerland', '🇨🇭', 'Serbia', '🇷🇸', '2026-06-08T17:00:00.000Z', null, null),
-  ('G1', 'G', 1, 'Netherlands', '🇳🇱', 'Ecuador', '🇪🇨', '2026-06-01T13:00:00.000Z', 0, 1),
-  ('G2', 'G', 1, 'Senegal', '🇸🇳', 'Nigeria', '🇳🇬', '2026-06-01T14:00:00.000Z', 1, 0),
-  ('G3', 'G', 2, 'Netherlands', '🇳🇱', 'Senegal', '🇸🇳', '2026-06-05T15:00:00.000Z', null, null),
-  ('G4', 'G', 2, 'Nigeria', '🇳🇬', 'Ecuador', '🇪🇨', '2026-06-05T16:00:00.000Z', null, null),
-  ('G5', 'G', 3, 'Nigeria', '🇳🇬', 'Netherlands', '🇳🇱', '2026-06-08T17:00:00.000Z', null, null),
-  ('G6', 'G', 3, 'Ecuador', '🇪🇨', 'Senegal', '🇸🇳', '2026-06-08T18:00:00.000Z', null, null),
-  ('H1', 'H', 1, 'England', '🏴󠁧󠁢󠁥󠁮󠁧󠁿', 'Wales', '🏴󠁧󠁢󠁷󠁬󠁳󠁿', '2026-06-01T14:00:00.000Z', 2, 3),
-  ('H2', 'H', 1, 'Iran', '🇮🇷', 'Egypt', '🇪🇬', '2026-06-01T15:00:00.000Z', 3, 2),
-  ('H3', 'H', 2, 'England', '🏴󠁧󠁢󠁥󠁮󠁧󠁿', 'Iran', '🇮🇷', '2026-06-05T16:00:00.000Z', null, null),
-  ('H4', 'H', 2, 'Egypt', '🇪🇬', 'Wales', '🏴󠁧󠁢󠁷󠁬󠁳󠁿', '2026-06-05T17:00:00.000Z', null, null),
-  ('H5', 'H', 3, 'Egypt', '🇪🇬', 'England', '🏴󠁧󠁢󠁥󠁮󠁧󠁿', '2026-06-08T18:00:00.000Z', null, null),
-  ('H6', 'H', 3, 'Wales', '🏴󠁧󠁢󠁷󠁬󠁳󠁿', 'Iran', '🇮🇷', '2026-06-08T13:00:00.000Z', null, null)
-on conflict (id) do nothing;
+-- == Match seed ==
+-- Run supabase/seed-matches.sql AFTER this file. It's generated by
+-- scripts/sync-matches.mjs from football-data.org (104 real 2026 matches; knockouts load
+-- as TBD). After launch, the sync job keeps teams + results updated automatically.

@@ -1,63 +1,62 @@
 import { describe, it, expect } from "vitest";
-import { MATCHES, ROUNDS, getMatch, isLocked, isPlayed } from "./matches";
+import { isLocked, isPlayed, isPredictable, matchSections } from "./matches";
 import type { Match } from "./types";
 
-describe("MATCHES mock data", () => {
-  it("has exactly 48 group-stage matches", () => {
-    expect(MATCHES).toHaveLength(48);
-  });
+const mk = (over: Partial<Match>): Match => ({
+  id: "X",
+  stage: "group",
+  group: "A",
+  matchday: 1,
+  home: { name: "H", flag: "" },
+  away: { name: "A", flag: "" },
+  kickoff: "2026-06-11T19:00:00.000Z",
+  ...over,
+});
 
-  it("has unique match ids", () => {
-    const ids = new Set(MATCHES.map((m) => m.id));
-    expect(ids.size).toBe(48);
-  });
+const before = Date.parse("2026-06-10T00:00:00.000Z");
+const after = Date.parse("2026-06-12T00:00:00.000Z");
 
-  it("spans 8 groups of 6 matches each", () => {
-    const byGroup = new Map<string, number>();
-    for (const m of MATCHES) byGroup.set(m.group, (byGroup.get(m.group) ?? 0) + 1);
-    expect(byGroup.size).toBe(8);
-    expect([...byGroup.values()].every((n) => n === 6)).toBe(true);
+describe("isLocked", () => {
+  it("locks once kickoff passes", () => {
+    expect(isLocked(mk({}), before)).toBe(false);
+    expect(isLocked(mk({}), after)).toBe(true);
   });
-
-  it("only matchday 1 carries a played result", () => {
-    for (const m of MATCHES) {
-      if (m.round === 1) expect(m.result).toBeDefined();
-      else expect(m.result).toBeUndefined();
-    }
-  });
-
-  it("exposes ascending rounds", () => {
-    expect(ROUNDS).toEqual([1, 2, 3]);
-  });
-
-  it("looks up matches by id", () => {
-    expect(getMatch("A1")?.id).toBe("A1");
-    expect(getMatch("nope")).toBeUndefined();
+  it("never locks a TBD match with no kickoff", () => {
+    expect(isLocked(mk({ kickoff: null }), after)).toBe(false);
   });
 });
 
-describe("lock / played state", () => {
-  const base: Match = {
-    id: "X",
-    group: "A",
-    round: 1,
-    home: { name: "H", flag: "" },
-    away: { name: "A", flag: "" },
-    kickoff: "2026-06-01T13:00:00.000Z",
-  };
-
-  const before = Date.parse("2026-05-31T00:00:00.000Z");
-  const after = Date.parse("2026-06-02T00:00:00.000Z");
-
-  it("locks once kickoff passes", () => {
-    expect(isLocked(base, before)).toBe(false);
-    expect(isLocked(base, after)).toBe(true);
+describe("isPlayed", () => {
+  it("is true only when locked AND has a result", () => {
+    expect(isPlayed(mk({ result: { home: 1, away: 0 } }), before)).toBe(false);
+    expect(isPlayed(mk({ result: { home: 1, away: 0 } }), after)).toBe(true);
+    expect(isPlayed(mk({}), after)).toBe(false);
   });
+});
 
-  it("is played only when locked AND has a result", () => {
-    const withResult = { ...base, result: { home: 1, away: 0 } };
-    expect(isPlayed(withResult, before)).toBe(false); // not locked yet
-    expect(isPlayed(withResult, after)).toBe(true);
-    expect(isPlayed(base, after)).toBe(false); // locked but no result
+describe("isPredictable", () => {
+  it("requires both teams known and kickoff not passed", () => {
+    expect(isPredictable(mk({}), before)).toBe(true);
+    expect(isPredictable(mk({}), after)).toBe(false); // locked
+    expect(isPredictable(mk({ home: null }), before)).toBe(false); // TBD
+    expect(isPredictable(mk({ kickoff: null, home: null, away: null }), before)).toBe(false);
+  });
+});
+
+describe("matchSections", () => {
+  it("orders group matchdays first, then knockout rounds, with labels", () => {
+    const matches: Match[] = [
+      mk({ id: "f", stage: "final", group: null, matchday: null, kickoff: "2026-07-19T19:00:00Z" }),
+      mk({ id: "g2", stage: "group", matchday: 2, kickoff: "2026-06-16T19:00:00Z" }),
+      mk({ id: "g1", stage: "group", matchday: 1, kickoff: "2026-06-11T19:00:00Z" }),
+      mk({ id: "r32", stage: "r32", group: null, matchday: null, kickoff: "2026-06-28T19:00:00Z" }),
+    ];
+    const sections = matchSections(matches);
+    expect(sections.map((s) => s.label)).toEqual([
+      "Matchday 1",
+      "Matchday 2",
+      "Round of 32",
+      "Final",
+    ]);
   });
 });

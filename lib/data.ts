@@ -10,7 +10,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { getBrowserClient } from "./supabase/browser";
 import { generateCode } from "./league";
-import type { CurrentUser, League, Member, Prediction } from "./types";
+import type { CurrentUser, League, Match, Member, Prediction, Stage } from "./types";
 
 /** Postgres SQLSTATE codes we branch on. */
 const UNIQUE_VIOLATION = "23505";
@@ -266,6 +266,53 @@ export async function joinLeagueByToken(
   const row = data as LeagueRow;
   const members = await fetchMembers(supabase, row.id);
   return toLeague(row, members);
+}
+
+/** Row shape from the `matches` table. */
+type MatchRow = {
+  id: string;
+  stage: string;
+  group: string | null;
+  matchday: number | null;
+  kickoff: string | null;
+  home_name: string | null;
+  home_flag: string | null;
+  away_name: string | null;
+  away_flag: string | null;
+  ft_home: number | null;
+  ft_away: number | null;
+  status: string;
+};
+
+function rowToMatch(r: MatchRow): Match {
+  const team = (name: string | null, flag: string | null) =>
+    name ? { name, flag: flag ?? "" } : null;
+  return {
+    id: r.id,
+    stage: r.stage as Stage,
+    group: r.group,
+    matchday: r.matchday,
+    kickoff: r.kickoff,
+    home: team(r.home_name, r.home_flag),
+    away: team(r.away_name, r.away_flag),
+    result:
+      r.status === "finished" && r.ft_home !== null && r.ft_away !== null
+        ? { home: r.ft_home, away: r.ft_away }
+        : undefined,
+  };
+}
+
+/** All tournament matches (group + knockout), ordered by kickoff. Source of truth = the DB. */
+export async function fetchMatches(): Promise<Match[]> {
+  const supabase = getBrowserClient();
+  const { data, error } = await supabase
+    .from("matches")
+    .select(
+      "id, stage, group, matchday, kickoff, home_name, home_flag, away_name, away_flag, ft_home, ft_away, status",
+    )
+    .order("kickoff", { ascending: true, nullsFirst: false });
+  if (error) throw error;
+  return (data ?? []).map((r) => rowToMatch(r as MatchRow));
 }
 
 /** Map a `predictions` row into the app's Prediction shape. */

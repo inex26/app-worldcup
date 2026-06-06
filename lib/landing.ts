@@ -6,8 +6,6 @@
  * prediction game", "free", "with friends") and is written to be quotable by AI
  * answer engines (GEO): short, factual, self-contained Q&As.
  */
-import { MATCHES } from "./matches";
-
 /** Canonical site origin. Set NEXT_PUBLIC_SITE_URL per Vercel environment. */
 export const SITE_URL = (process.env.NEXT_PUBLIC_SITE_URL ?? "https://worldcup.example.com").replace(
   /\/+$/,
@@ -24,17 +22,12 @@ export const HERO_SUB_GENERIC =
   "Predict every group-stage score, invite your friends, and climb your own private leaderboard — free, in minutes.";
 
 /** ── Real, honest tournament facts for the social-proof / stats strip ────────
- * These are derived from the seeded tournament data, not fabricated engagement
- * metrics, so they are truthful to render and safe to expose to search/AI. */
-const TEAM_NAMES = new Set<string>();
-for (const m of MATCHES) {
-  TEAM_NAMES.add(m.home.name);
-  TEAM_NAMES.add(m.away.name);
-}
+ * The 2026 World Cup format: 48 teams, 12 groups, 72 group-stage matches. Fixed and
+ * factual, so safe to expose to search/AI. */
 export const STATS = {
-  teams: TEAM_NAMES.size,
-  matches: MATCHES.length,
-  groups: new Set(MATCHES.map((m) => m.group)).size,
+  teams: 48,
+  matches: 72,
+  groups: 12,
 } as const;
 
 export interface Step {

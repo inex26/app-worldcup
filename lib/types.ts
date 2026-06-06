@@ -12,16 +12,23 @@ export interface Score {
   away: number;
 }
 
-/** A single group-stage match. `result` is set only on mock "played" matches. */
+/** Tournament stage: group stage, then the knockout rounds. */
+export type Stage = "group" | "r32" | "r16" | "qf" | "sf" | "third" | "final";
+
+/** A single match. Knockout matches start with null teams (TBD) until rounds resolve. */
 export interface Match {
   id: string;
-  group: string; // "A".."H"
-  round: number; // matchday 1..3
-  home: Team;
-  away: Team;
-  /** ISO timestamp of kickoff. Predictions lock once this passes. */
-  kickoff: string;
-  /** Final score, present only for mock matches that have been "played". */
+  stage: Stage;
+  /** "A".."L" for the group stage; null for knockouts. */
+  group: string | null;
+  /** 1..3 for the group stage; null for knockouts. */
+  matchday: number | null;
+  /** null until the team is known (knockout placeholders). */
+  home: Team | null;
+  away: Team | null;
+  /** ISO kickoff; null if not yet scheduled. Predictions lock once it passes. */
+  kickoff: string | null;
+  /** Full-time score, present only once the match is finished. */
   result?: Score;
 }
 

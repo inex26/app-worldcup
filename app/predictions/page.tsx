@@ -9,10 +9,10 @@ import { Button } from "@/components/Button";
 import { ChevronIcon } from "@/components/icons";
 import { Toast, useToast } from "@/components/Toast";
 import { useSession } from "@/components/useSession";
-import { MATCHES, ROUNDS, isLocked } from "@/lib/matches";
+import { isLocked, isPredictable, matchSections } from "@/lib/matches";
 import { scorePrediction } from "@/lib/scoring";
-import { fetchPredictions, savePrediction } from "@/lib/data";
-import type { Prediction } from "@/lib/types";
+import { fetchMatches, fetchPredictions, savePrediction } from "@/lib/data";
+import type { Match, Prediction } from "@/lib/types";
 
 /** Parse an input string into a valid goal count (0–20 integer) or null. */
 function parseGoals(v: string): number | null {
@@ -22,24 +22,36 @@ function parseGoals(v: string): number | null {
   return n;
 }
 
-/** Screen 4 — Predictions. Collapsible matchday sections with per-row + bulk save. */
+/** Predictions — collapsible sections (group matchdays + knockout rounds) with per-row + bulk save. */
 export default function PredictionsPage() {
   const router = useRouter();
   const { loading, user, league, error, errorMessage } = useSession();
   const { message, show } = useToast();
 
   const [now] = useState(() => Date.now());
+  const [matches, setMatches] = useState<Match[] | null>(null);
   const [values, setValues] = useState<Record<string, RowValue>>({});
   const [saved, setSaved] = useState<Record<string, Prediction>>({});
-  const [open, setOpen] = useState<Record<number, boolean>>(() =>
-    Object.fromEntries(ROUNDS.map((r) => [r, true])),
-  );
+  const [open, setOpen] = useState<Record<string, boolean>>({});
 
-  // Redirect to home only when genuinely signed-out — NOT on a load error (e.g. schema
-  // drift), which we surface visibly via <LoadError> instead of a silent bounce.
   useEffect(() => {
     if (!loading && !error && (!user || !league)) router.replace("/");
   }, [loading, error, user, league, router]);
+
+  // Load the fixtures (source of truth = DB).
+  useEffect(() => {
+    if (!user) return;
+    let active = true;
+    fetchMatches()
+      .then((ms) => active && setMatches(ms))
+      .catch((err) => {
+        console.error("Load matches failed:", err);
+        if (active) setMatches([]);
+      });
+    return () => {
+      active = false;
+    };
+  }, [user]);
 
   // Hydrate inputs from saved predictions once the session is ready.
   useEffect(() => {
@@ -66,19 +78,14 @@ export default function PredictionsPage() {
     };
   }, [user, league, show]);
 
-  const matchesByRound = useMemo(
-    () => ROUNDS.map((round) => ({ round, list: MATCHES.filter((m) => m.round === round) })),
-    [],
-  );
+  const sections = useMemo(() => matchSections(matches ?? []), [matches]);
 
   function rowValue(matchId: string): RowValue {
     return values[matchId] ?? { home: "", away: "" };
   }
-
   function isComplete(v: RowValue): boolean {
     return parseGoals(v.home) !== null && parseGoals(v.away) !== null;
   }
-
   function isDirty(matchId: string): boolean {
     const v = rowValue(matchId);
     if (!isComplete(v)) return false;
@@ -102,8 +109,6 @@ export default function PredictionsPage() {
     if (home === null || away === null) return false;
     const prediction: Prediction = { matchId, home, away, savedAt: Date.now() };
 
-    // Optimistic: reflect the save immediately, then persist in the background
-    // and revert this row if the upsert fails.
     const previous = saved[matchId];
     setSaved((prev) => ({ ...prev, [matchId]: prediction }));
     savePrediction(league.id, user.id, prediction).catch((err) => {
@@ -120,9 +125,9 @@ export default function PredictionsPage() {
   }
 
   const dirtyIds = useMemo(
-    () => MATCHES.filter((m) => !isLocked(m, now) && isDirty(m.id)).map((m) => m.id),
+    () => (matches ?? []).filter((m) => isPredictable(m, now) && isDirty(m.id)).map((m) => m.id),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [values, saved, now],
+    [matches, values, saved, now],
   );
 
   function handleSaveAll() {
@@ -144,59 +149,68 @@ export default function PredictionsPage() {
     <AppShell league={league} active="predictions">
       <h1>Predictions</h1>
       <p className="muted">
-        Predict every group-stage score. Exact score = <strong>3 pts</strong>, correct result ={" "}
+        Predict every score. Exact score = <strong>3 pts</strong>, correct result ={" "}
         <strong>1 pt</strong>. Picks lock at kickoff.
       </p>
 
-      {matchesByRound.map(({ round, list }) => (
-        <section key={round} aria-labelledby={`round-${round}`}>
-          <button
-            type="button"
-            className="section-header"
-            aria-expanded={open[round]}
-            aria-controls={`round-${round}-panel`}
-            onClick={() => setOpen((p) => ({ ...p, [round]: !p[round] }))}
-          >
-            <h2 id={`round-${round}`} style={{ margin: 0 }}>
-              Matchday {round}
-            </h2>
-            <ChevronIcon className="chev" />
-          </button>
+      {matches === null ? (
+        <p className="muted">Loading matches…</p>
+      ) : sections.length === 0 ? (
+        <p className="muted">Matches will appear here once they&apos;re published.</p>
+      ) : (
+        sections.map((section) => {
+          const isOpen = open[section.key] ?? true;
+          return (
+            <section key={section.key} aria-labelledby={`sec-${section.key}`}>
+              <button
+                type="button"
+                className="section-header"
+                aria-expanded={isOpen}
+                aria-controls={`sec-${section.key}-panel`}
+                onClick={() => setOpen((p) => ({ ...p, [section.key]: !isOpen }))}
+              >
+                <h2 id={`sec-${section.key}`} style={{ margin: 0 }}>
+                  {section.label}
+                </h2>
+                <ChevronIcon className="chev" />
+              </button>
 
-          {open[round] && (
-            <div id={`round-${round}-panel`}>
-              {list.map((match) => {
-                const locked = isLocked(match, now);
-                const v = rowValue(match.id);
-                const hasSaved = saved[match.id] !== undefined;
-                const points =
-                  locked && match.result && hasSaved
-                    ? scorePrediction(
-                        { home: saved[match.id].home, away: saved[match.id].away },
-                        match.result,
-                      )
-                    : undefined;
-                return (
-                  <MatchRow
-                    key={match.id}
-                    match={match}
-                    value={v}
-                    locked={locked}
-                    saved={hasSaved}
-                    dirty={isDirty(match.id)}
-                    result={locked ? match.result : undefined}
-                    points={points}
-                    onChange={(field, value) => handleChange(match.id, field, value)}
-                    onSave={() => {
-                      if (saveOne(match.id)) show("Prediction saved");
-                    }}
-                  />
-                );
-              })}
-            </div>
-          )}
-        </section>
-      ))}
+              {isOpen && (
+                <div id={`sec-${section.key}-panel`}>
+                  {section.matches.map((match) => {
+                    const locked = isLocked(match, now);
+                    const v = rowValue(match.id);
+                    const hasSaved = saved[match.id] !== undefined;
+                    const points =
+                      locked && match.result && hasSaved
+                        ? scorePrediction(
+                            { home: saved[match.id].home, away: saved[match.id].away },
+                            match.result,
+                          )
+                        : undefined;
+                    return (
+                      <MatchRow
+                        key={match.id}
+                        match={match}
+                        value={v}
+                        locked={!isPredictable(match, now)}
+                        saved={hasSaved}
+                        dirty={isDirty(match.id)}
+                        result={locked ? match.result : undefined}
+                        points={points}
+                        onChange={(field, value) => handleChange(match.id, field, value)}
+                        onSave={() => {
+                          if (saveOne(match.id)) show("Prediction saved");
+                        }}
+                      />
+                    );
+                  })}
+                </div>
+              )}
+            </section>
+          );
+        })
+      )}
 
       {dirtyIds.length > 0 && (
         <div className="save-footer">

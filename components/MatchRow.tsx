@@ -48,15 +48,15 @@ export function MatchRow({
   return (
     <fieldset className={`match-row${correct ? " correct" : ""}`}>
       <legend>
-        Group {match.group} · Matchday {match.round}
+        {match.stage === "group" ? `Group ${match.group} · Matchday ${match.matchday}` : ""}
       </legend>
 
       <div className="match-grid">
         <span className="team">
           <span className="flag" aria-hidden="true">
-            {match.home.flag}
+            {match.home?.flag ?? ""}
           </span>
-          {match.home.name}
+          {match.home?.name ?? "TBD"}
         </span>
 
         <span className="score-inputs">
@@ -69,7 +69,7 @@ export function MatchRow({
             value={value.home}
             disabled={inputsDisabled}
             aria-disabled={inputsDisabled || undefined}
-            aria-label={`${match.home.name} goals`}
+            aria-label={`${match.home?.name ?? "Home"} goals`}
             onChange={(e) => onChange?.("home", e.target.value)}
           />
           <span className="score-sep" aria-hidden="true">
@@ -84,22 +84,22 @@ export function MatchRow({
             value={value.away}
             disabled={inputsDisabled}
             aria-disabled={inputsDisabled || undefined}
-            aria-label={`${match.away.name} goals`}
+            aria-label={`${match.away?.name ?? "Away"} goals`}
             onChange={(e) => onChange?.("away", e.target.value)}
           />
         </span>
 
         <span className="team away">
           <span className="flag" aria-hidden="true">
-            {match.away.flag}
+            {match.away?.flag ?? ""}
           </span>
-          {match.away.name}
+          {match.away?.name ?? "TBD"}
         </span>
       </div>
 
       <div className="match-meta">
         <span className="muted" style={{ fontSize: "0.85rem" }}>
-          {formatKickoff(match.kickoff)}
+          {match.kickoff ? formatKickoff(match.kickoff) : "Date TBD"}
         </span>
 
         <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
